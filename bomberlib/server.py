@@ -29,6 +29,7 @@ class Server:
         self.Q = []
       
     def serve(self):
+        data = ""
         while True:                        
             readables, writeables, exceptions = select(self.readsocks, self.writesocks, [])
             for sockobj in readables:
@@ -36,20 +37,27 @@ class Server:
                     newsock, address = sockobj.accept()
                     print 'Client connected:', address, id(newsock)
                     self.readsocks.append(newsock)
-                else:
-                    data = sockobj.recv(1024)
-                    if not data:
+                else:                    
+                    chunk = sockobj.recv(1024)
+                    if not chunk:
                         sockobj.close()
                         self.readsocks.remove(sockobj)
-                    try:
-                        data = json.loads(data)
-                    except EOFError:
-                        sockobj.close()
-                        if sockobj in self.readsocks:
-                            self.readsocks.remove(sockobj)
-                        continue
+
+                    data += chunk
+                    nullPos = data.find("\x00")
+                    if nullPos != -1:
+                        maybeMessage = data[:nullPos]
+                        data = data[nullPos + 1:]
                     
-                    self.Q.append((datetime.datetime.now(), data))
+                        try:
+                            message = json.loads(maybeMessage)
+                        except EOFError:
+                            sockobj.close()
+                            if sockobj in self.readsocks:
+                                self.readsocks.remove(sockobj)
+                            continue
+                    
+                        self.Q.append((datetime.datetime.now(), message))
 
             while True:
                 if (len(writeables) == 0) or (len(self.Q) == 0):
