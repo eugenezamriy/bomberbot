@@ -58,7 +58,7 @@ class Server:
 
                 for sockobj in writeables:
                     try:
-                        sockobj.send(pickle.dumps(message[1]))
+                        sockobj.send(json.dumps(message[1]))
                     except:
                         pass
                 self.Q.remove(message)
@@ -77,7 +77,7 @@ class Server:
 if __name__=="__main__":
     BomberBot = Server("",41000)
     try:
-        BomberBot.Serve()
+        BomberBot.serve()
     finally:
         for sock in BomberBot.mainsocks:
             sock.close()
