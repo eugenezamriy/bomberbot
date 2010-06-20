@@ -32,6 +32,7 @@ class Server:
         data = ""
         while True:                        
             readables, writeables, exceptions = select(self.readsocks, self.writesocks, [])
+            trailingData = {}
             for sockobj in readables:
                 if sockobj in self.mainsocks:                 
                     newsock, address = sockobj.accept()
@@ -42,12 +43,17 @@ class Server:
                     if not chunk:
                         sockobj.close()
                         self.readsocks.remove(sockobj)
+                        continue
 
-                    data += chunk
-                    nullPos = data.find("\x00")
+                    try:
+                        trailingData[sockobj] += chunk
+                    except KeyError:
+                        trailingData[sockObj] = chunk
+                        
+                    nullPos = trailingData[sockObj].find("\x00")
                     if nullPos != -1:
                         maybeMessage = data[:nullPos]
-                        data = data[nullPos + 1:]
+                        trailingData[sockObj] = trailingData[sockObj][nullPos + 1:]
                     
                         try:
                             message = json.loads(maybeMessage)
@@ -70,8 +76,7 @@ class Server:
                     except:
                         pass
                 self.Q.remove(message)
-        time.sleep(0.1)
-        return
+            time.sleep(0.1)
 
     def handleQuit(self):
         for sock in self.mainsocks:
@@ -80,7 +85,6 @@ class Server:
             sock.close()
         for sock in self.writesocks:
             sock.close()
-        return
                 
 if __name__=="__main__":
     BomberBot = Server("",41000)
