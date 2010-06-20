@@ -1,1 +1,6 @@
 Description: Turn-based bomberman clone for bots playing. 
+
+Dependencies: - Raphaël (MIT license, included in distribution)
+                http://raphaeljs.com/
+              - Ext Core (MIT license, included in distribution)
+                http://www.sencha.com/products/core/

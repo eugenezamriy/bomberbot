@@ -1,0 +1,11 @@
+body {
+    margin: 1em;
+}
+
+#map-canvas {
+    overflow: auto;
+}
+
+#control-form input[type="text"] {
+    width: 50;
+}

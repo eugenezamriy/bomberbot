@@ -1,0 +1,52 @@
+<html>
+  <!-- TODO: sort of design must be created -->
+  <head>
+    <script src="lib/raphael-min.js" type="text/javascript"></script>
+    <script src="lib/ext-core.js" type="text/javascript"></script>
+
+    <link rel="stylesheet" type="text/css" href="map-designer.css"/>
+    <script src="map-designer.js" type="text/javascript"></script>
+  </head>
+  <body>
+    <div id="control-panel">
+      <form action="#" id="control-form">
+        Height:
+        <input type="text" value="20" id="height-fld"/>
+        Width:
+        <input type="text" value="20" id="width-fld"/>
+        <input type="submit" value="Generate" onClick="Bomber.MapEditor.drawMap();"/>
+
+        Single click:
+        <select id="click-type-sel">
+          <option value="wall">wall</option>
+          <option value="steel">steel</option>
+          <option value="erase">erase</option>
+          <option value="player">player</option>
+        </select>
+
+        Double click:
+        <select id="dclick-type-sel">
+          <option value="steel">steel</option>
+          <option value="wall">wall</option>
+          <option value="erase">erase</option>
+          <option value="player">player</option>
+        </select>
+        <hr/>
+
+        Map name:
+        <input type="text" id="map-name-fld" style="width: 100px;"/>
+        Min players count:
+        <input type="text" id="min-players-fld"/>
+        Max players count:
+        <input type="text" id="max-players-fld"/>
+        Bonus bombs count:
+        <input type="text" value="10" id="bomb-fld"/>
+        Bonus radius count:
+        <input type="text" value="5" id="radius-fld"/>
+        <input type="Submit" value="Upload map" onClick="Bomber.MapEditor.submitMap();"/>
+      </form>
+    </div>
+    <div id="map-canvas">
+    </div>
+  </body>
+</html>
