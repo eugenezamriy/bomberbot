@@ -51,7 +51,7 @@ class Server:
                         trailingData[sockObj] = chunk
                         
                     nullPos = trailingData[sockObj].find("\x00")
-                    if nullPos != -1:
+                    while nullPos != -1:
                         maybeMessage = data[:nullPos]
                         trailingData[sockObj] = trailingData[sockObj][nullPos + 1:]
                     
@@ -64,6 +64,7 @@ class Server:
                             continue
                     
                         self.Q.append((datetime.datetime.now(), message))
+                        nullPos = trailingData[sockObj].find("\x00")
 
             while True:
                 if (len(writeables) == 0) or (len(self.Q) == 0):
