@@ -63,7 +63,7 @@ class Server:
                                 self.readsocks.remove(sockobj)
                             continue
                     
-                        self.Q.append((datetime.datetime.now(), message))
+                        self.Q.append((datetime.datetime.now(), id(sockobj), message))
                         nullPos = trailingData[sockObj].find("\x00")
 
             while True:
