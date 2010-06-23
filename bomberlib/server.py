@@ -1,8 +1,6 @@
-# encoding: utf-8
-"""
-BomberBot Server
-"""
-
+# -*- mode:python; coding:utf-8; -*-
+# created: 19.06.2010 16:21 UTC
+# description: BomberBot server.
 import datetime
 import json
 from select import select

@@ -1,4 +1,6 @@
-# encoding: utf-8
+# -*- mode:python; coding:utf-8; -*-
+# created: 24.06.2010 15:52 UTC
+# description: Client for testing BomberBot server.
 import socket, sys, struct
 
 def send(socket, message):
