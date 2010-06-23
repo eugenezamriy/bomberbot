@@ -6,20 +6,36 @@
 import datetime
 import json
 from select import select
-from socket import socket, AF_INET, SOCK_STREAM
+import socket
+#from socket import socket, AF_INET, SOCK_STREAM
 import time
+import Queue
+
+from bomberlib.logger import debug, error
 
 
 class Server:
 
-    def __init__(self, HOSTNAME, PORT):
-        self.HOSTNAME = HOSTNAME
-        self.PORT = PORT
+    def __init__(self, address, port, in_queue, out_queue):
+        """
+        @type address:    str
+        @param address:   IP address to bind server on.
+        @type port:       int
+        @param port:      Port to listen on.
+        @type in_queue:   Queue.Queue
+        @param in_queue:  Incoming messages queue (timestamp, socket id, message).
+        @type out_queue:  Queue.Queue
+        @param out_queue: Outgoing messages queue (socket id, message).
+        """
+        self.bind_address = address
+        self.bind_port = port
+        self.in_queue = in_queue
+        self.out_queue = out_queue
         
         mainsocks, readsocks = [], []
 
-        portsock = socket(AF_INET, SOCK_STREAM)
-        portsock.bind((HOSTNAME, PORT))
+        portsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        portsock.bind((self.bind_address, self.bind_port))
         portsock.listen(5)
         mainsocks.append(portsock)
         readsocks.append(portsock)
@@ -27,19 +43,36 @@ class Server:
         self.mainsocks = mainsocks
         self.readsocks = readsocks
         self.writesocks = []
-
-        self.Q = []
       
     def serve(self):
         data = {}
-        while True:                        
-            readables, writeables, exceptions = select(self.readsocks, self.writesocks, [])
+        while True:
+            try:
+                readables, writeables, exceptions = select(self.readsocks, self.writesocks, [])
+            except socket.error, e:
+                # seems one of our sockets broken - find it
+                # TODO: this is really ugly code and must be rewrited
+                for sockobj in set(self.readsocks + self.writesocks):
+                    try:
+                        _, _, _ = select([sockobj], [sockobj], [], 0)
+                    except socket.error, e:
+                        if sockobj in self.readsocks:
+                            self.readsocks.remove(sockobj)
+                        if sockobj in self.writesocks:
+                            self.writesocks.remove(sockobj)
+                        # clean data dictionary to avoid memory leaks
+                        if sockobj in data:
+                            del(data[sockobj])
+                continue
             for sockobj in readables:
                 if sockobj in self.mainsocks:                 
                     newsock, address = sockobj.accept()
-                    print 'Client connected:', address, id(newsock)
+                    debug("client connected: %s, %s" % (address, id(newsock)))
                     self.readsocks.append(newsock)
-                else:                    
+                    # NOTE: moved to message receiving block but dunno what is better
+                    #self.writesocks.append(newsock)
+                else:
+                    s_id = id(sockobj)            # socket id
                     chunk = sockobj.recv(1024)
                     if not chunk:
                         sockobj.close()
@@ -58,27 +91,39 @@ class Server:
                         nullPos = data[sockobj].find("\x00")
                         try:
                             message = json.loads(maybeMessage)
-                        except ValueError:
-                            pass
+                        except ValueError, e:
+                            error("can't decode message from %s (%s): %s" % \
+                                  (s_id, str(e), maybeMessage))
                         except EOFError:
                             sockobj.close()
                             if sockobj in self.readsocks:
                                 self.readsocks.remove(sockobj)
                             continue
                         else:
-                            self.Q.append((datetime.datetime.now(), id(sockobj), message))
+                            # seems message was received successfully, put it to processing queue
+                            debug("received message from %s: %s" % (s_id, message))
+                            self.in_queue.put((datetime.datetime.now(), s_id, message),
+                                              block=True)
+                            if sockobj not in self.writesocks:
+                                self.writesocks.append(sockobj)
+                            # NOTE: with this lines server acts as echo server. must be removed
+                            #       later (when messages dispatcher 'll be done).
+                            (_, _, _) = self.in_queue.get(block=True)
+                            self.out_queue.put((s_id, message))
 
             while True:
-                if (len(writeables) == 0) or (len(self.Q) == 0):
+                if (len(writeables) == 0) or self.out_queue.empty():
                     break
-                message = self.Q[0]
-
+                try:
+                    s_id, message = self.out_queue.get(block=False)
+                except Queue.Empty:
+                    break
+                # TODO: send message only to socket with s_id
                 for sockobj in writeables:
                     try:
-                        sockobj.send(json.dumps(message[1]))
+                        sockobj.send(json.dumps(message) + "\x00")
                     except:
                         pass
-                self.Q.remove(message)
             
             time.sleep(0.1)
 

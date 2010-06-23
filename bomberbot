@@ -6,6 +6,7 @@
 
 import getopt
 import sys
+from Queue import Queue
 
 from bomberlib.logger import debug, error
 from bomberlib.server import Server
@@ -48,7 +49,11 @@ def main(sys_args):
                 error("Wrong port value: %s" % str(e))
                 return 1
     #
-    srv = Server(address, port)
+    # incoming messages queue (timestamp, socket id, message)
+    in_queue = Queue(maxsize=1000)
+    # outgoing messages queue (socket id, message)
+    out_queue = Queue(maxsize=1000)
+    srv = Server(address, port, in_queue, out_queue)
     try:
         srv.serve()
     finally:
