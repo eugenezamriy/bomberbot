@@ -29,10 +29,9 @@ class Server:
         self.Q = []
       
     def serve(self):
-        data = ""
+        data = {}
         while True:                        
             readables, writeables, exceptions = select(self.readsocks, self.writesocks, [])
-            trailingData = {}
             for sockobj in readables:
                 if sockobj in self.mainsocks:                 
                     newsock, address = sockobj.accept()
@@ -40,22 +39,20 @@ class Server:
                     self.readsocks.append(newsock)
                 else:                    
                     chunk = sockobj.recv(1024)
-                    print chunk
                     if not chunk:
                         sockobj.close()
                         self.readsocks.remove(sockobj)
                         continue
 
                     try:
-                        trailingData[sockobj] += chunk
+                        data[sockobj] += chunk
                     except KeyError:
-                        trailingData[sockobj] = chunk
+                        data[sockobj] = chunk
                         
-                    nullPos = trailingData[sockobj].find("\x00")
+                    nullPos = data[sockobj].find("\x00")
                     while nullPos != -1:
                         maybeMessage = trailingData[sockobj][:nullPos]
                         trailingData[sockobj] = trailingData[sockobj][nullPos + 1:]
-                    
                         try:
                             message = json.loads(maybeMessage)
                         except ValueError:
