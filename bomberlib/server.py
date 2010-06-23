@@ -40,6 +40,7 @@ class Server:
                     self.readsocks.append(newsock)
                 else:                    
                     chunk = sockobj.recv(1024)
+                    print chunk
                     if not chunk:
                         sockobj.close()
                         self.readsocks.remove(sockobj)
@@ -52,19 +53,22 @@ class Server:
                         
                     nullPos = trailingData[sockobj].find("\x00")
                     while nullPos != -1:
-                        maybeMessage = data[:nullPos]
+                        maybeMessage = trailingData[sockobj][:nullPos]
                         trailingData[sockobj] = trailingData[sockobj][nullPos + 1:]
                     
                         try:
                             message = json.loads(maybeMessage)
+                        except ValueError:
+                            pass
                         except EOFError:
                             sockobj.close()
                             if sockobj in self.readsocks:
                                 self.readsocks.remove(sockobj)
                             continue
-                    
-                        self.Q.append((datetime.datetime.now(), id(sockobj), message))
-                        nullPos = trailingData[sockobj].find("\x00")
+                        else:
+                            print "Message '%s' recieved from socket '%d'" % (message, id(sockobj))
+                            self.Q.append((datetime.datetime.now(), id(sockobj), message))
+                            nullPos = trailingData[sockobj].find("\x00")
 
             while True:
                 if (len(writeables) == 0) or (len(self.Q) == 0):
@@ -77,7 +81,6 @@ class Server:
                     except:
                         pass
                 self.Q.remove(message)
-            time.sleep(0.1)
 
     def handleQuit(self):
         for sock in self.mainsocks:
