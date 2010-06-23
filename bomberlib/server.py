@@ -1,13 +1,13 @@
+# encoding: utf-8
 """
 BomberBot Server
 """
 
-import sys
 import datetime
-import thread
 import json
 from select import select
 from socket import socket, AF_INET, SOCK_STREAM
+import time
 
 class Server:
     def __init__(self, HOSTNAME, PORT):
@@ -53,6 +53,7 @@ class Server:
                     while nullPos != -1:
                         maybeMessage = data[sockobj][:nullPos]
                         data[sockobj] = data[sockobj][nullPos + 1:]
+                        nullPos = data[sockobj].find("\x00")
                         try:
                             message = json.loads(maybeMessage)
                         except ValueError:
@@ -64,7 +65,6 @@ class Server:
                             continue
                         else:
                             self.Q.append((datetime.datetime.now(), id(sockobj), message))
-                            nullPos = data[sockobj].find("\x00")
 
             while True:
                 if (len(writeables) == 0) or (len(self.Q) == 0):
@@ -77,6 +77,8 @@ class Server:
                     except:
                         pass
                 self.Q.remove(message)
+            
+            time.sleep(0.1)
 
     def handleQuit(self):
         for sock in self.mainsocks:
