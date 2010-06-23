@@ -22,7 +22,7 @@ def show_usage():
 
 def main(sys_args):
     debug = False
-    address = "127.0.0.1"
+    address = ""
     port = 41000
     #
     try:
