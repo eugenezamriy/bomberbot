@@ -51,8 +51,8 @@ class Server:
                         
                     nullPos = data[sockobj].find("\x00")
                     while nullPos != -1:
-                        maybeMessage = trailingData[sockobj][:nullPos]
-                        trailingData[sockobj] = trailingData[sockobj][nullPos + 1:]
+                        maybeMessage = data[sockobj][:nullPos]
+                        data[sockobj] = data[sockobj][nullPos + 1:]
                         try:
                             message = json.loads(maybeMessage)
                         except ValueError:
@@ -63,9 +63,8 @@ class Server:
                                 self.readsocks.remove(sockobj)
                             continue
                         else:
-                            print "Message '%s' recieved from socket '%d'" % (message, id(sockobj))
                             self.Q.append((datetime.datetime.now(), id(sockobj), message))
-                            nullPos = trailingData[sockobj].find("\x00")
+                            nullPos = data[sockobj].find("\x00")
 
             while True:
                 if (len(writeables) == 0) or (len(self.Q) == 0):
