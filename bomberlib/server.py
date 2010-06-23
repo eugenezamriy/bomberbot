@@ -94,6 +94,12 @@ class Server:
                         except ValueError, e:
                             error("can't decode message from %s (%s): %s" % \
                                   (s_id, str(e), maybeMessage))
+                            # if json isn't valid sends to the client 
+                            # status:error packet
+                            # TODO: do more general error-report system
+                            self.out_queue.put((s_id, json.dumps('{"status":"error"}')))
+                            if sockobj not in self.writesocks:
+                                self.writesocks.append(sockobj)
                         except EOFError:
                             sockobj.close()
                             if sockobj in self.readsocks:
