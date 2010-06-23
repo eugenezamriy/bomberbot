@@ -1,13 +1,17 @@
 # -*- mode:python; coding:utf-8; -*-
 # created: 19.06.2010 16:21 UTC
 # description: BomberBot server.
+
+
 import datetime
 import json
 from select import select
 from socket import socket, AF_INET, SOCK_STREAM
 import time
 
+
 class Server:
+
     def __init__(self, HOSTNAME, PORT):
         self.HOSTNAME = HOSTNAME
         self.PORT = PORT
@@ -84,12 +88,4 @@ class Server:
         for sock in self.readsocks:
             sock.close()
         for sock in self.writesocks:
-            sock.close()
-                
-if __name__=="__main__":
-    BomberBot = Server("",41000)
-    try:
-        BomberBot.serve()
-    finally:
-        for sock in BomberBot.mainsocks:
             sock.close()
