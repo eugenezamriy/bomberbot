@@ -48,12 +48,12 @@ class Server:
                     try:
                         trailingData[sockobj] += chunk
                     except KeyError:
-                        trailingData[sockObj] = chunk
+                        trailingData[sockobj] = chunk
                         
-                    nullPos = trailingData[sockObj].find("\x00")
+                    nullPos = trailingData[sockobj].find("\x00")
                     while nullPos != -1:
                         maybeMessage = data[:nullPos]
-                        trailingData[sockObj] = trailingData[sockObj][nullPos + 1:]
+                        trailingData[sockobj] = trailingData[sockobj][nullPos + 1:]
                     
                         try:
                             message = json.loads(maybeMessage)
@@ -64,7 +64,7 @@ class Server:
                             continue
                     
                         self.Q.append((datetime.datetime.now(), id(sockobj), message))
-                        nullPos = trailingData[sockObj].find("\x00")
+                        nullPos = trailingData[sockobj].find("\x00")
 
             while True:
                 if (len(writeables) == 0) or (len(self.Q) == 0):
