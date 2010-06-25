@@ -57,7 +57,7 @@ def main(sys_args):
     try:
         srv.serve()
     finally:
-        for sock in srv.mainsocks:
+        for sock in srv.main_socks:
             sock.close()
 
 
