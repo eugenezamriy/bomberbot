@@ -2,7 +2,6 @@
 # created: 19.06.2010 16:21 UTC
 # description: BomberBot server.
 
-
 import datetime
 import json
 from select import select
@@ -12,6 +11,7 @@ import time
 import Queue
 
 from bomberlib.logger import debug, error
+from bomberlib.errors import generate_error
 
 
 class Server:
@@ -31,7 +31,7 @@ class Server:
         self.bind_port = port
         self.in_queue = in_queue
         self.out_queue = out_queue
-        self.data = {}                            # incompleted messages buffer
+        self.data = {}                            # Incompleted messages buffer.
         self.main_socks, self.read_socks, self.write_socks = [], [], []
         port_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         port_sock.bind((self.bind_address, self.bind_port))
@@ -40,18 +40,26 @@ class Server:
         self.read_socks.append(port_sock)
       
     def serve(self):
+        """ Handles all the incoming and outgoing connections.
+        
+        Accepts new connections from clients.
+        Reads incoming packets and puts it to the in_queue (global queue for 
+        incoming messages). 
+        Sends all the packets from the out_queue (global queue with outgoing 
+        messages) to the appropriate clients."""
         while True:
             try:
-                readables, writeables, exceptions = select(self.read_socks, self.write_socks, [])
+                readables, writeables, exceptions = \
+                    select(self.read_socks, self.write_socks, [])
             except socket.error, e:
-                # seems one of our sockets broken - find it
+                # Seems one of our sockets broken - find it.
                 for sockobj in set(self.read_socks + self.write_socks):
                     try:
                         _, _, _ = select([sockobj], [sockobj], [], 0)
                     except socket.error, e:
                         self.__remove_socket(sockobj)
                 continue
-            # read incoming messages
+            # Read incoming messages.
             for sockobj in readables:
                 if sockobj in self.main_socks:                 
                     newsock, address = sockobj.accept()
@@ -59,7 +67,7 @@ class Server:
                     self.read_socks.append(newsock)
                     self.write_socks.append(newsock)
                 else:
-                    s_id = id(sockobj)            # socket id
+                    s_id = id(sockobj)            # Socket id.
                     chunk = sockobj.recv(1024)
                     if not chunk:
                         self.__remove_socket(sockobj)
@@ -80,17 +88,19 @@ class Server:
                         except ValueError, e:
                             error("can't decode message from %s (%s): %s" % \
                                   (s_id, str(e), maybe_message))
-                            self.out_queue.put((s_id, {"status": "error", "reason": str(e)}))
+                            self.out_queue.put((s_id, generate_error(str(e))))
                         else:
-                            # seems message was received successfully, put it to processing queue
+                            # Seems message was received successfully, put it 
+                            # to processing queue.
                             debug("received message from %s: %s" % (s_id, message))
                             self.in_queue.put((datetime.datetime.now(), s_id, message),
                                               block=True)
-                            # NOTE: with this lines server acts as echo server. must be removed
-                            #       later (when messages dispatcher 'll be done).
+                            # NOTE: With this lines server acts as echo server.
+                            #       Must be removed later (when messages 
+                            #       dispatcher 'll be done).
                             (_, _, _) = self.in_queue.get(block=True)
                             self.out_queue.put((s_id, message))
-            # send outgoing messages
+            # Send outgoing messages.
             while True:
                 if len(writeables) == 0 or self.out_queue.empty():
                     break
@@ -106,9 +116,10 @@ class Server:
                         except:
                             pass
                         break
-            time.sleep(0.1)                       # make some delay to avoid CPU eating
+            time.sleep(0.1)                       # Make some delay to avoid CPU eating.
 
     def __remove_socket(self, sockobj):
+        """ Removes `sockobj` from the read_socks and the write_socks lists."""
         sockobj.close()
         if sockobj in self.read_socks:
             self.read_socks.remove(sockobj)
@@ -119,6 +130,7 @@ class Server:
             del(self.data[id_])
 
     def handleQuit(self):
+        """ Closes all unclosed sockets on exit."""
         for sock in self.mainsocks:
             sock.close()
         for sock in self.readsocks:
