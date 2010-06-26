@@ -66,8 +66,20 @@ class Dispatcher(threading.Thread):
         if bot is None:
             raise AuthError()
         session_id = self.__gen_session_id()
-        j = {"status": "ok", "session_id": session_id}
+        j = {"status": "ok", "session_id": session_id, "game_types": self.__make_game_types_list()}
         return j
+
+    def __make_game_types_list(self):
+        types = []
+        for t in db.session.query(db.Game).all():
+            j = {}
+            for f in ("type_id", "turn_time", "init_bombs_count", "max_bombs_count",
+                      "init_bomb_radius", "bomb_delay", "min_players_count", "max_players_count"):
+                j[f] = getattr(t, f)
+            for f in ("name", "height", "width"):
+                j["map_" + f] = getattr(t.map, f)
+            types.append(j)
+        return types
 
     def __gen_session_id(self):
         # TODO: this generator copypasted from bot id generator
