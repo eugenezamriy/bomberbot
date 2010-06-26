@@ -62,6 +62,7 @@ Bomber.MapEditor.submitMap = function() {
                 js.players.push([x, y]);
         }
     }
+  var j = Ext.encode(js);
     alert(Ext.encode(js));
 };
 
@@ -112,9 +113,10 @@ Bomber.MapEditor.drawMap = function() {
     if (bme.MAP_WIDTH == undefined)
         bme.MAP_WIDTH = bme.DEFAULT_WIDTH;
     //
-    bme.PAPER = Raphael("map-canvas",
-                        bme.MAP_HEIGHT * bme.LENGTH + bme.MAP_HEIGHT * bme.SPACE + bme.SPACE,
-                        bme.MAP_WIDTH * bme.LENGTH + bme.MAP_WIDTH * bme.SPACE + bme.SPACE);
+    //bme.PAPER = Raphael("map-canvas",
+    //                    bme.MAP_HEIGHT * bme.LENGTH + bme.MAP_HEIGHT * bme.SPACE + bme.SPACE,
+    //                    bme.MAP_WIDTH * bme.LENGTH + bme.MAP_WIDTH * bme.SPACE + bme.SPACE);
+  bme.PAPER = Raphael("map-canvas", 400, 400);
     bme.MAP = bme.PAPER.set();
     var row = bme.PAPER.set();
     var cell = null;

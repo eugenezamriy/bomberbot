@@ -5,9 +5,12 @@
 
 
 import getopt
+import os
 import sys
 from Queue import Queue
 
+from bomberlib.dispatcher import Dispatcher
+import bomberlib.db as db
 from bomberlib.logger import debug, error
 from bomberlib.server import Server
 
@@ -48,14 +51,22 @@ def main(sys_args):
             except ValueError, e:
                 error("Wrong port value: %s" % str(e))
                 return 1
-    #
+    # init database
+    if os.path.exists("bomberbot.db"):
+        os.remove("bomberbot.db")
+    db.init_db("sqlite:///bomberbot.db", debug)
     # incoming messages queue (timestamp, socket id, message)
     in_queue = Queue(maxsize=1000)
     # outgoing messages queue (socket id, message)
     out_queue = Queue(maxsize=1000)
+    disp = Dispatcher(in_queue, out_queue)
+    disp.daemon = True                            # enter daemon mode to allow process closing
+    disp.start()
     srv = Server(address, port, in_queue, out_queue)
     try:
         srv.serve()
+    except KeyboardInterrupt:
+        pass
     finally:
         for sock in srv.main_socks:
             sock.close()

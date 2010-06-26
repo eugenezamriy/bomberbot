@@ -4,6 +4,7 @@ body {
 
 #map-canvas {
     overflow: auto;
+    border: 1px solid black;
 }
 
 #control-form input[type="text"] {

@@ -1,7 +1,7 @@
 # -*- mode:python; coding:utf-8; -*-
 # created: 24.06.2010 15:52 UTC
 # description: Client for testing BomberBot server.
-import socket, sys, struct
+import socket, sys, struct, json
 
 def send(socket, message):
     """ Sends a message with null-terminator."""
@@ -20,6 +20,8 @@ if __name__ == "__main__":
         host, port, message = sys.argv[1:4]
         port = int(port)
         count = int(sys.argv[4]) if len(sys.argv) == 5 else 1
+        if message == "handshake":
+            message = json.dumps({"cmd": "handshake", "type": "player", "id": "test_id1", "email": "test@example.com"})
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.connect((host, port))

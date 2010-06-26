@@ -38,7 +38,7 @@ class Server:
         port_sock.listen(5)
         self.main_socks.append(port_sock)
         self.read_socks.append(port_sock)
-      
+
     def serve(self):
         """ Handles all the incoming and outgoing connections.
         
@@ -98,8 +98,8 @@ class Server:
                             # NOTE: With this lines server acts as echo server.
                             #       Must be removed later (when messages 
                             #       dispatcher 'll be done).
-                            (_, _, _) = self.in_queue.get(block=True)
-                            self.out_queue.put((s_id, message))
+                            #(_, _, _) = self.in_queue.get(block=True)
+                            #self.out_queue.put((s_id, message))
             # Send outgoing messages.
             while True:
                 if len(writeables) == 0 or self.out_queue.empty():
