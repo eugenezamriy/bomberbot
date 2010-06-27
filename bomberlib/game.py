@@ -23,7 +23,7 @@ class Game(threading.Thread):
         @type game_id:       unicode
         @param game_id:      Unique game ID.
         @type game_data:     dict
-        @param game_data:    Game data dictionary. See GameType.as_dict for details.
+        @param game_data:    Game data dictionary. See db.GameType.as_dict() for details.
         @type out_queue:     Queue.Queue
         @param out_queue:    Game will put outgoing messages to this queue.
         @type wait_timeout:  int
