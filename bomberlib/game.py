@@ -76,10 +76,10 @@ class Game(threading.Thread):
         if self.__join_lock.acquire(False):
             if len(self.__players) < self.__max_players_count and not self.__game_runs:
                 self.__players.append(Player(name, session_id, socket_id))
-                self.__join_lock.release()
                 # launch game when minimal players count reached
-                if len(self.__players) >= self.__min_players_count:
+                if len(self.__players) >= self.__min_players_count and not self.is_alive():
                     self.start()
+                self.__join_lock.release()
                 return True
             self.__join_lock.release()
         return False
@@ -96,15 +96,17 @@ class Game(threading.Thread):
         self.__game_runs = True
         self.__align_players()                    # place players on inital positions
         # send starting message to all recipients
-        j = {"status": "game_started",
-             "game_id": self.__game_id,
-             "turn_time": self.__turn_time,
-             "map_width": self.__map_width,
-             "map_height": self.__map_height,
-             "players": map(lambda p: {p.name: [p.x, p.y]}, self.__players),
-             "stone": self.__list_cells(STONE),
-             "metal": self.__list_cells(METAL)}
+        data = {"status": "game_started",
+                "game_id": self.__game_id,
+                "turn_time": self.__turn_time,
+                "map_width": self.__map_width,
+                "map_height": self.__map_height,
+                "players": map(lambda p: {p.name: [p.x, p.y]}, self.__players),
+                "stone": self.__list_cells(STONE),
+                "metal": self.__list_cells(METAL)}
         for player in self.__players:
+            j = dict()
+            for k in data: j[k] = data[k]
             j["session_id"] = player.session_id
             self.__out_queue.put((player.socket_id, j), block=True, timeout=None)
         #
