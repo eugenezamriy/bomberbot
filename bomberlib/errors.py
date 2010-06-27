@@ -3,12 +3,13 @@
 # description: Contains all the exceptions and errors handling functions.
 
 
-UNKNOWN_ERROR, BAD_CMD, BAD_PARAMS, AUTH_ERROR = range(4)
+UNKNOWN_ERROR, BAD_CMD, BAD_PARAMS, AUTH_ERROR, SESSION_ERROR = range(5)
 
 REASONS = {UNKNOWN_ERROR: "unknown server error",
            BAD_CMD: "wrong command received",
            BAD_PARAMS: "wrong command arguments",
-           AUTH_ERROR: "invalid credentials"}
+           AUTH_ERROR: "invalid credentials",
+           SESSION_ERROR: "seems your session was expired"}
 
 
 class BomberbotException(Exception):
@@ -37,6 +38,14 @@ class AuthError(BomberbotException):
 
     def __init__(self, message=""):
         BomberbotException.__init__(self, AUTH_ERROR, message)
+
+
+class SessionError(BomberbotException):
+
+    """Indicates wrong session id/session expiration."""
+
+    def __init__(self, message=""):
+        BomberbotException.__init__(self, SESSION_ERROR, message)
 
 
 def generate_error(code=UNKNOWN_ERROR, reason="", exception=None):
