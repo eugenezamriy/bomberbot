@@ -95,11 +95,6 @@ class Server:
                             debug("received message from %s: %s" % (s_id, message))
                             self.in_queue.put((datetime.datetime.now(), s_id, message),
                                               block=True)
-                            # NOTE: With this lines server acts as echo server.
-                            #       Must be removed later (when messages 
-                            #       dispatcher 'll be done).
-                            #(_, _, _) = self.in_queue.get(block=True)
-                            #self.out_queue.put((s_id, message))
             # Send outgoing messages.
             while True:
                 if len(writeables) == 0 or self.out_queue.empty():
