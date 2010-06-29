@@ -5,6 +5,8 @@
 
 
 import getopt
+import logging
+import logging.handlers
 import os
 import sys
 from Queue import Queue
@@ -24,7 +26,34 @@ def show_usage():
         sys.stdout.write("%s\n" % l)
 
 
+def configure_loggers():
+    # TODO: use syslog later
+    logs_dir = os.path.join(os.path.split(sys.argv[0])[0], "logs")
+    if not os.access(logs_dir, os.F_OK):
+        try:
+            os.mkdir(logs_dir)
+        except OSError, e:
+            print >> sys.stderr, "Can't create logs directory %s: %s" % (logs_dir, str(e))
+            return False
+    # redirect all errors to stderr
+    console = logging.StreamHandler()
+    console.setLevel(logging.ERROR)
+    console.setFormatter(logging.Formatter('%(name)s: %(levelname)-8s %(message)s'))
+    logging.getLogger('').addHandler(console)
+    # redirect server logs to separate file
+    srv_log = logging.getLogger("bomberbot.server")
+    srv_log.setLevel(logging.DEBUG)
+    handler = logging.handlers.RotatingFileHandler(os.path.join(logs_dir, "server.log"),
+                                                   maxBytes=100000000, backupCount=5)    
+    formatter = logging.Formatter("%(asctime)s %(levelname)-7s %(message)s")
+    handler.setFormatter(formatter)
+    srv_log.addHandler(handler)
+    return True
+
+
 def main(sys_args):
+    if not configure_loggers():
+        return 1
     debug = False
     address = ""
     port = 41000
@@ -49,7 +78,7 @@ def main(sys_args):
             try:
                 port = int(arg)
             except ValueError, e:
-                error("Wrong port value: %s" % str(e))
+                print >> sys.stderr, "Wrong port value: %s" % str(e)
                 return 1
     # init database
     if os.path.exists("bomberbot.db"):

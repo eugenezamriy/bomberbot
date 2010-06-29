@@ -4,13 +4,13 @@
 
 import datetime
 import json
+import logging
 from select import select
 import socket
 #from socket import socket, AF_INET, SOCK_STREAM
 import time
 import Queue
 
-from bomberlib.logger import debug, error
 from bomberlib.errors import generate_error
 
 
@@ -31,6 +31,7 @@ class Server:
         self.bind_port = port
         self.in_queue = in_queue
         self.out_queue = out_queue
+        self.__logger = logging.getLogger("bomberbot.server")
         self.data = {}                            # Incompleted messages buffer.
         self.main_socks, self.read_socks, self.write_socks = [], [], []
         port_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -47,6 +48,7 @@ class Server:
         incoming messages). 
         Sends all the packets from the out_queue (global queue with outgoing 
         messages) to the appropriate clients."""
+        self.__logger.debug("server started")
         while True:
             try:
                 readables, writeables, exceptions = \
@@ -63,9 +65,9 @@ class Server:
             for sockobj in readables:
                 if sockobj in self.main_socks:                 
                     newsock, address = sockobj.accept()
-                    debug("client connected: %s, %s" % (address, id(newsock)))
                     self.read_socks.append(newsock)
                     self.write_socks.append(newsock)
+                    self.__logger.debug("client connected. address: %s, socket id: %s" % (address, id(newsock)))
                 else:
                     s_id = id(sockobj)            # Socket id.
                     chunk = sockobj.recv(1024)
@@ -86,15 +88,15 @@ class Server:
                         try:
                             message = json.loads(maybe_message)
                         except ValueError, e:
-                            error("can't decode message from %s (%s): %s" % \
-                                  (s_id, str(e), maybe_message))
                             self.out_queue.put((s_id, generate_error(str(e))))
+                            self.__logger.error("can't decode message from %s (%s): %s" % \
+                                                (s_id, str(e), maybe_message))
                         else:
                             # Seems message was received successfully, put it 
                             # to processing queue.
-                            debug("received message from %s: %s" % (s_id, message))
                             self.in_queue.put((datetime.datetime.now(), s_id, message),
                                               block=True)
+                            self.__logger.debug("received message from %s: %s" % (s_id, message))
             # Send outgoing messages.
             while True:
                 if len(writeables) == 0 or self.out_queue.empty():
@@ -106,8 +108,8 @@ class Server:
                 for sockobj in writeables:
                     if id(sockobj) == s_id:
                         try:
-                            debug("sending message to %s: %s" % (s_id, json.dumps(message)))
                             sockobj.sendall(json.dumps(message) + "\x00")
+                            self.__logger.debug("sending message to %s: %s" % (s_id, json.dumps(message)))
                         except:
                             pass
                         break
@@ -123,6 +125,7 @@ class Server:
         id_ = id(sockobj)
         if self.data.has_key(id_):
             del(self.data[id_])
+        self.__logger.debug("client disconnected: %s" % id_)
 
     def handleQuit(self):
         """ Closes all unclosed sockets on exit."""

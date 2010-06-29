@@ -75,8 +75,14 @@ class Game(threading.Thread):
         """
         if self.__join_lock.acquire(False):
             if len(self.__players) < self.__max_players_count and not self.__game_runs:
+                # players names must be unique per game. Protocol related issue
+                for p in self.__players:
+                    if p.name == name:
+                        self.__join_lock.release()
+                        return False
                 self.__players.append(Player(name, session_id, socket_id))
                 # launch game when minimal players count reached
+                # TODO: doublecheck this peace of code later
                 if len(self.__players) >= self.__min_players_count and not self.is_alive():
                     self.start()
                 self.__join_lock.release()
@@ -110,8 +116,8 @@ class Game(threading.Thread):
             j["session_id"] = player.session_id
             self.__out_queue.put((player.socket_id, j), block=True, timeout=None)
         #
-        while self.__game_runs:
-            time.sleep(0.1)
+        #while self.__game_runs:
+        #    time.sleep(0.1)
 
     def __align_players(self):
         """Places players on initial positions."""
