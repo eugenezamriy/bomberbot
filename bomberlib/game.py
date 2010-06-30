@@ -6,7 +6,9 @@
 import random
 import threading
 import time
+import Queue
 
+from bomberlib.errors import *
 from bomberlib.player import Player
 from bomberlib.logger import debug, error
 
@@ -44,6 +46,7 @@ class Game(threading.Thread):
         self.__map_name = game_data["map"]["name"]
         self.__map_height = game_data["map"]["height"]
         self.__map_width = game_data["map"]["width"]
+        self.__tries_count = 5                    # TODO: must be in game type I think
         # generate map multidimensional array
         self.__map = [[BLANK for i in range(self.__map_width)] for i in range(self.__map_height)]
         if "stone" in game_data["map"]:
@@ -60,6 +63,9 @@ class Game(threading.Thread):
         self.__join_lock = threading.Lock()
         self.__game_runs = False
         self.__players = []
+        self.__bombs = []
+        # input messages queue. Used to avoid potential multithreading related problems
+        self.__in_queue = Queue.Queue()
 
     def join_player(self, name, session_id, socket_id):
         """
@@ -101,13 +107,96 @@ class Game(threading.Thread):
         self.__join_lock.acquire()                # no more players can be joined to game
         self.__game_runs = True
         self.__align_players()                    # place players on inital positions
-        # send starting message to all recipients
+        self.__send_startup_messages()            # send game_started messages to players
+        turn_number = 0
+        while self.__game_runs:
+            turns = {}
+            end_time = time.time() + self.__turn_time
+            while time.time() < end_time:
+                while True:
+                    try:
+                        msg = self.__in_queue.get(block=False)
+                        session_id = msg["session_id"]
+                        # find player object associated with message
+                        player = None
+                        for p in self.__players:
+                            if p.session_id == session_id:
+                                player = p
+                                break
+                        if player is None:
+                            # NOTE: theoretically this is impossible situation and impossible even
+                            #       to send error because we don't know socket_id
+                            # TODO: logging must be added here - this is critical error
+                            break
+                        try:
+                            self.__validate_turn(player, msg, turn_number)
+                        except BomberbotException, e:
+                            j = generate_error(exception=e)
+                            j["session_id"] = session_id
+                            j["time_left"] = int(end_time - time.time())
+                            # TODO: tries_left information must be added
+                            self.__out_queue.put((player.socket_id, j), block=True, timeout=None)
+                            break
+                        # add message to accepted turns list, it 'll be processed at end of turn
+                        if turns.has_key(player):
+                            turns[player].append(msg)
+                        else:
+                            turns[player] = [msg]
+                        j = {"status": "ok",
+                             "session_id": session_id,
+                             "time_left": end_time - time.time(),
+                             "tries_left": self.__tries_count - len(turns[player])}
+                        self.__out_queue.put((player.socket_id, j), block=True, timeout=None)
+                    except Queue.Empty:
+                        break
+                time.sleep(0.1)                   # NOTE: this interval not well tested
+            # TODO: turn processing must be here
+            turn_number += 1
+
+    def __validate_turn(self, player, msg, turn_number):
+        """
+        Validates player turn.
+
+        @type player:  Player
+        @param player: Player object.
+        @type msg:     dict
+        @param msg:    Player turn message.
+        """
+        if msg["turn_number"] != turn_number:
+            raise BadParamsError("invalid turn number")
+        if "move" not in msg:
+            raise BadParamsError("can not find information about movement")
+        try:
+            px, py = msg["move"][0]
+            nx, ny = msg["move"][1]
+            # TODO: check for bombs here
+            if player.x != px or player.y != py or \
+               not ((px == nx and py - ny in (-1, 1, 0)) or (py == ny and px - nx in (-1, 1, 0))) \
+               or ny > self.__map_height-1 or ny < 0 or nx > self.__map_width-1 or nx < 0 or \
+               self.__map[ny][nx] in (STONE, METAL):
+                raise Exception()
+            #
+            for bomb in self.__bombs:
+                if bomb.x == nx and bomb.y == ny:
+                    raise Exception()
+        except Exception:
+            raise BadParamsError("wrong information about movement")
+        if "bomb" in msg:                         # bomb must be on current or previous position
+            try:
+                x, y = msg["bomb"]
+                if not (x == px and y == py) and not (x == nx and y == ny):
+                    raise Exception()
+            except Exception:
+                raise BadParamsError("wrong information about bomb")
+
+    def __send_startup_messages(self):
+        """Sends game_started messages to all players."""
         data = {"status": "game_started",
                 "game_id": self.__game_id,
                 "turn_time": self.__turn_time,
                 "map_width": self.__map_width,
                 "map_height": self.__map_height,
-                "players": map(lambda p: {p.name: [p.x, p.y]}, self.__players),
+                "players": map(lambda p: {"name": p.name, "pos": [p.x, p.y]}, self.__players),
                 "stone": self.__list_cells(STONE),
                 "metal": self.__list_cells(METAL)}
         for player in self.__players:
@@ -115,9 +204,6 @@ class Game(threading.Thread):
             for k in data: j[k] = data[k]
             j["session_id"] = player.session_id
             self.__out_queue.put((player.socket_id, j), block=True, timeout=None)
-        #
-        #while self.__game_runs:
-        #    time.sleep(0.1)
 
     def __align_players(self):
         """Places players on initial positions."""
@@ -152,6 +238,27 @@ class Game(threading.Thread):
                 if self.__map[y][x] == cell_type:
                     cells.append((x, y))
         return cells
+
+    def receive_turn(self, message):
+        """
+        Receives players turns and puts them into processing queue.
+
+        @type message:  dict
+        @param message: Player turn message.
+        """
+        self.__in_queue.put(message)
+
+    def has_player(self, session_id):
+        """
+        Checks if player with speciffied session_id joined to this game.
+
+        @type session_id:  unicode
+        @param session_id: Player session id.
+        """
+        for player in self.__players:
+            if player.session_id == session_id:
+                return True
+        return False
 
     def __get_type_id(self):
         return self.__type_id

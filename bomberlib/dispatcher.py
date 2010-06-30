@@ -54,6 +54,8 @@ class Dispatcher(threading.Thread):
                         j = self.__process_handshake(message)
                     elif message["cmd"] == "join":
                         self.__process_join(message, socket_id)
+                    elif message["cmd"] == "turn":
+                        self.__process_turn(message)
                 except BomberbotException, e:
                     j = generate_error(exception=e)
                 except NotImplementedError, e:
@@ -69,6 +71,22 @@ class Dispatcher(threading.Thread):
             # make some delay to avoid CPU eating
             if not msg_found:
                 time.sleep(0.1)
+
+    def __process_turn(self, message):
+        """
+        Routes message with turn data to target game.
+
+        @type message:  dict
+        @param message: Incoming message dictionary.
+        """
+        if "session_id" not in message or "game_id" not in message:
+            raise BadParamsError()
+        game_id = message["game_id"]
+        if game_id not in self.__games or \
+               not self.__games[game_id].has_player(message["session_id"]) or \
+               not self.__games[game_id].is_alive():
+            raise BadParamsError("unknown game_id")
+        self.__games[game_id].receive_turn(message)
 
     def __process_join(self, message, socket_id):
         """
