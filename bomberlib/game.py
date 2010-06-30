@@ -9,6 +9,7 @@ import time
 import Queue
 
 from bomberlib.errors import *
+from bomberlib.bomb import Bomb
 from bomberlib.player import Player
 from bomberlib.logger import debug, error
 
@@ -75,7 +76,7 @@ class Game(threading.Thread):
         @param session_id: Player session ID.
         @type socket_id:   int
         @param socket_id   Socket ID associated with player.
-
+        
         @rtype: bool
         @return: Join status. True if player was joined to game.
         """
@@ -86,7 +87,8 @@ class Game(threading.Thread):
                     if p.name == name:
                         self.__join_lock.release()
                         return False
-                self.__players.append(Player(name, session_id, socket_id))
+                self.__players.append(Player(name, self.__init_bombs_count, self.__init_bomb_radius,
+                                             session_id, socket_id))
                 # launch game when minimal players count reached
                 # TODO: doublecheck this peace of code later
                 if len(self.__players) >= self.__min_players_count and not self.is_alive():
@@ -111,7 +113,8 @@ class Game(threading.Thread):
         turn_number = 0
         while self.__game_runs:
             turns = {}
-            end_time = time.time() + self.__turn_time
+            # TODO: don't know now how-to get time in milliseconds
+            end_time = time.time() + self.__turn_time / 1000
             while time.time() < end_time:
                 while True:
                     try:
@@ -151,12 +154,143 @@ class Game(threading.Thread):
                         break
                 time.sleep(0.1)                   # NOTE: this interval not well tested
             # TODO: turn processing must be here
+            j = self.__complete_turn(turn_number, turns)
+            for p in self.__players:
+                # TODO: send message to each player here
+                pass
             turn_number += 1
+
+    def __complete_turn(self, turn_number, turns):
+        """
+        Makes needed calculations and completes current turn.
+        
+        @type turn_number:  int
+        @param turn_number: Completed turn number.
+        @type turns:        dic
+        @param turns:       Turns dictionary (player = movement message).
+        """
+        j = {"status": "turn_completed",
+             "turn_number": turn_number,
+             "killed": [],
+             "players": [],
+             "destroyed_walls": [],
+             "exploded_bombs": [],
+             "bombs": [],
+             "new_bonuses": [],
+             "taken_bonuses": []}
+        # calculate bombs explosions
+        for bomb in self.__bombs:
+            if bomb.turn_detonated != turn_number:
+                continue
+            x = bomb.x
+            y = bomb.y
+            r = bomb.player.bomb_radius
+            # north direction
+            north = y - r if (y - r) > 0 else 0
+            i = y - 1
+            while i >= north:
+                cell = self.__map[i][x]
+                if cell == BLANK:
+                    pass
+                elif cell == STONE:
+                    j["destroyed_walls"].append([x, i])
+                    north = i
+                    break
+                elif cell == METAL:
+                    north = i
+                    break
+                elif isinstance(cell, Player):
+                    j["killed"].append(cell.name)
+                    # TODO: mark player as killed or remove from players list.
+                #TODO process bomb/list of players/bombs here
+                i -= 1
+            # TODO process another directions and finish message
+            #
+            j["exploded_bombs"].append({"center": [x, y]})
+        # find latest players turns (with biggest turn_id)
+        right_turns = {}
+        for p in turns:
+            max_id = None
+            for t in turns[p]:
+                if max_id is None or t["turn_id"] > max_id:
+                    right_turns[p] = t
+                    max_id = t["turn_id"]
+        # TODO: bonuses support must be added
+        # players movements
+        for p in right_turns:
+            ox, oy = right_turns[p]["move"][0]
+            nx, ny = right_turns[p]["move"][1]
+            self.__remove_from_cell(p)
+            p.x = nx
+            p.y = ny
+            self.__place_to_cell(p)
+        # TODO: process also players which movement wasn't received here
+        # bombs placements
+        bombs = {}                                # (x, y) = Bomb object or list of Bombs
+        for p in right_turns:
+            if "bomb" in right_turns[p]:          # place bomb if needed
+                x, y = right_turns[p]["bomb"]
+                bomb = Bomb(p, x, y, turn_number, turn_number, turn_number + self.__bomb_delay)
+                if bombs.has_key((x, y)):
+                    if type(bombs[(x, y)]) == list:
+                        bombs[(x, y)].append(bomb)
+                    else:
+                        bombs[(x, y)] = [bomb, bombs[(x, y)]]
+                else:
+                    bombs[(x, y)] = bomb
+        for pos in bombs:
+            bomb = random.choice(bombs[pos]) if type(bombs[pos]) == list else bombs[pos]
+            self.__bombs.append(bomb)
+            self.__place_to_cell(bombs[pos])
+            bomb.player.bombs_count -= 1
+            j["bombs"].append({"owner": bomb.player.name, "pos": [bomb.x, bomb.y]})
+        #
+        j["players"].append({"name": p.name, "pos": [p.x, p.y], "bombs_count": p.bombs_count,
+                             "bomb_radius": p.bomb_radius})
+        return j
+
+    def __remove_from_cell(self, obj):
+        """
+        Removes given object from its current map cell.
+        
+        @type obj: Bomb or Player
+        @param obj: Bomb or Player instance to be removed.
+        """
+        x = obj.x
+        y = obj.y
+        cell = self.__map[y][x]
+        if isinstance(cell, Player) or isinstance(cell, Bomb) or \
+               (type(cell) == list and len(cell == 1)):
+            self.__map[y][x] = BLANK
+        elif type(self.__map[oy][ox]) == list:
+            # another player or bomb located in cell
+            self.__map[y][x].remove(obj)
+        else:
+            raise RuntimeError("unknown element found in position %s,%s" % (x, y))
+
+    def __place_to_cell(self, obj):
+        """
+        Places given object into map cell.
+        
+        @type obj: Bomb or Player
+        @param obj: Bomb or Player instance to be placed.
+        """
+        x = obj.x
+        y = obj.y
+        cell = self.__map[y][x]
+        if cell == BLANK:
+            self.__map[y][x] = obj
+        elif isinstance(cell, Player) or isinstance(cell, Bomb):
+            self.__map[y][x] = [self.__map[y][x], obj]
+        elif type(cell) == list:
+            self.__map[y][x].append(obj)
+        else:
+            raise RuntimeError("unknown element found in position %s,%s" % (x, y))
 
     def __validate_turn(self, player, msg, turn_number):
         """
         Validates player turn.
-
+        
         @type player:  Player
         @param player: Player object.
         @type msg:     dict

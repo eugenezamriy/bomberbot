@@ -5,13 +5,15 @@
 
 class Player(object):
 
-    def __init__(self, name, session_id, socket_id):
+    def __init__(self, name, bombs_count, bomb_radius, session_id, socket_id):
         self.__name = name
         self.__session_id = session_id
         self.socket_id = socket_id
         # player coordinates on game field
         self.x = None
         self.y = None
+        self.bombs_count = bombs_count
+        self.bomb_radius = bomb_radius
 
     def __get_name(self):
         return self.__name
