@@ -1,0 +1,271 @@
+#!/usr/bin/env python
+# -*- mode:python; coding:utf-8; -*-
+# created: 30.06.2010 14:58
+# description: Bomberbot development bot.
+
+
+import getopt
+import json
+import socket
+import sys
+import threading
+import time
+
+
+BLANK, STONE, METAL = range(3)
+
+
+class WaitThread(threading.Thread):
+
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.must_run = True
+
+    def run(self):
+        while self.must_run:
+            sys.stdout.write(".")
+            sys.stdout.flush()
+            time.sleep(1)
+
+
+class Player(object):
+
+    def __init__(self, name, x, y):
+        self.name = name
+        self.x = x
+        self.y = y
+
+
+class DevelBot(object):
+
+    def __init__(self, address, port):
+        self.__buf = ""
+        self.__map = None
+        self.__players = []
+        self.__my_name = None
+        self.__s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.__s.connect((address, port))
+
+    def begin(self):
+        """Bot entry point."""
+        j = self.handshake()
+        sid = j["session_id"]
+        type_id = self.ask_game_type(j)
+        j = self.join_game(sid, type_id)
+        self.load_map(j)
+        self.print_map()
+        self.__game_runs = True
+        self.__session_id = j["session_id"]
+        self.__game_id = j["game_id"]
+        self.__turn_number = 0
+        while self.__game_runs:
+            self.process_turn()
+            self.print_map()
+
+    def print_map(self):
+        sys.stdout.write("\033[2J\033[1;1H")
+        # TODO: what's hapened here?
+        frame =  "".join(["-" for i in range(self.__map_height * 2 + 5)])
+        print frame
+        for r in self.__map:
+            sys.stdout.write("|")
+            sys.stdout.write("|".join([self.cell_to_term(cell) for cell in r]))
+            sys.stdout.write("|\n")
+            sys.stdout.flush()
+        print frame
+        print "You are player: %s" % self.__my_name
+
+    def process_turn(self):
+        print "Your movement:"
+        for b in ("up", "down", "left", "right", "bomb"):
+            print "    %s - %s" % (b[0], b)
+        sys.stdout.write("turn %s> " % self.__turn_number)
+        sys.stdout.flush()
+        m = raw_input().strip()
+        if len(m) not in (1, 2):
+            print "Invalid movement"
+            return
+        for p in self.__players:
+            if p.name == self.__my_name:
+                break
+        j = {"cmd": "turn",
+             "session_id": self.__session_id,
+             "game_id": self.__game_id,
+             "turn_number": self.__turn_number,
+             "turn_id": 0,
+             "move": [[p.x, p.y]]}
+        cur_pos = [p.x, p.y]
+        for l in m:
+            if l == "u":
+                j["move"].append([p.x, p.y - 1])
+                cur_pos[1] -= 1
+            elif l == "d":
+                j["move"].append([p.x, p.y + 1])
+                cur_pos[1] += 1
+            elif l == "l":
+                j["move"].append([p.x - 1, p.y])
+                cur_pos[0] -= 1
+            elif l == "r":
+                j["move"].append([p.x + 1, p.y])
+                cur_pos[0] += 1
+            elif l == "b":
+                j["bomb"] = [cur_pos[0], cur_pos[1]]
+            else:
+                print "Invalid movement"
+                return
+        self.send(j)
+        reply = self.receive()
+        if reply["status"] != "ok":
+            print "Movement was not accepted: %s" % reply["reason"]
+            return
+        print "Movement accepted. Waiting for next turn:"
+        wt = WaitThread()
+        wt.start()
+        try:
+            reply = self.receive()
+        except:
+            wt.must_run = False
+            sys.exit(1)
+        print reply
+
+    def cell_to_term(self, cell):
+        if cell == STONE:
+            return u"#"
+        elif cell == METAL:
+            return u"%"
+        elif isinstance(cell, Player):
+            return cell.name
+        return " "
+
+    def load_map(self, j):
+        self.__map_width = j["map_width"]
+        self.__map_height = j["map_height"]
+        self.__map = [[BLANK for i in range(self.__map_width)] for i in range(self.__map_height)]
+        if "stone" in j:
+            for x, y in j["stone"]:
+                self.__map[y][x] = STONE
+        if "metal" in j:
+            for x, y in j["metal"]:
+                self.__map[y][x] = METAL
+        if "players" in j:
+            for rec in j["players"]:
+                x, y = rec["pos"]
+                p = Player(self.name_to_number(rec["name"]), x, y)
+                self.__map[y][x] = p
+                self.__players.append(p)
+
+    def name_to_number(self, name):
+        return name.split("test_bot")[1]
+
+    def join_game(self, session_id, type_id):
+        sys.stdout.write("\033[2J\033[1;1H")
+        self.send({"cmd": "join", "session_id": session_id, "type_id": type_id})
+        sys.stdout.write("waiting for game_started message: ")
+        wt = WaitThread()
+        wt.start()
+        try:
+            j = self.receive()
+        except:
+            wt.must_run = False
+            sys.exit(1)
+        wt.must_run = False
+        if j["status"] != "game_started":
+            sys.stdout.write("\033[2J\033[1;1H")
+            sys.stderr.write("can't join game: %s\n" % j["reason"])
+            sys.exit(1)
+        return j
+
+    def ask_game_type(self, j):
+        sys.stdout.write("\033[2J\033[1;1H")
+        sys.stdout.write("select desired game type:\n")
+        i = 1
+        for t in j["game_types"]:
+            sys.stdout.write("    %s) %s\n" % (i, t["type_id"]))
+            i += 1
+        sys.stdout.write("join game> ")
+        id_num = raw_input().strip()
+        if id_num in map(lambda i: str(i), range(1, i)):
+            return j["game_types"][int(id_num)-1]["type_id"]
+        return id_num
+
+    def handshake(self):
+        sys.stdout.write("\033[2J\033[1;1H")
+        sys.stdout.write("desired bot ID: \n    1) test_id1\n    2) test_id2\nhandshake> ")
+        id_num = raw_input().strip()
+        if id_num == "1":
+            id_ = "test_id1"
+        elif id_num == "2":
+            id_ = "test_id2"
+        elif id_num in ("test_id1", "test_id2"):
+            id_ = id_num
+        else:
+            sys.stderr.write("unknown bot ID")
+            sys.exit(1)
+        self.__my_name = id_.split("test_id")[1]
+        msg = {"cmd": "handshake",
+               "type": "player",
+               "id": id_,
+               "email": "test@example.com"}
+        self.send(msg)
+        j = self.receive()
+        if j["status"] != "ok":
+            sys.stderr.write("can't finish handshake: %s\n" % j["reason"])
+            sys.exit(1)
+        return j
+
+    def send(self, message):
+        message = json.dumps(message)
+        totalsent = 0
+        while totalsent < len(message):
+            sent = self.__s.send(message[totalsent:])
+            if sent == 0:
+                raise Exception("connection broken")
+            totalsent += sent
+        self.__s.send("\x00")
+
+    def receive(self):
+        message = ""
+        while message == "":
+            chunk = self.__s.recv(1024)
+            if not chunk:
+                raise Exception("connection broken")
+            self.__buf += chunk
+            term_pos = self.__buf.find("\x00")
+            if term_pos != -1:
+                message = self.__buf[:term_pos]
+                self.__buf = self.__buf[term_pos+1:]
+                return json.loads(message)
+
+
+def main(sys_args):
+    debug = False
+    address = "127.0.0.1"
+    port = 41000
+    try:
+        opts, args = getopt.getopt(sys_args, "dha:p:", ["debug", "help", "address=", "port="])
+    except getopt.GetoptError, e:
+        error(str(e))
+        show_usage()
+        return 1
+    for opt, arg in opts:
+        if opt in ("-d", "--debug"):
+            debug = True
+        elif opt in ("-h", "--help"):
+            show_usage()
+            return 0
+        elif opt in ("-a", "--address"):
+            # TODO: validation must be improved
+            address = arg
+        elif opt in ("-p", "--port"):
+            # TODO: validation must be improved
+            try:
+                port = int(arg)
+            except ValueError, e:
+                error("Wrong port value: %s" % str(e))
+                return 1
+    b = DevelBot(address, port)
+    b.begin()
+
+
+if __name__ == "__main__":
+   sys.exit(main(sys.argv[1:]))
