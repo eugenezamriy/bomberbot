@@ -33,7 +33,7 @@ class Dispatcher(threading.Thread):
         self.__in_queue = in_queue
         self.__out_queue = out_queue
         # temporary session ids storage: session id = (type, timestamp in seconds)
-        # records older then TMP_SIDS_TIMEOUT minutes 'll be deleted
+        # records older then TMP_SIDS_TIMEOUT seconds 'll be deleted
         self.__tmp_sids = {}
         # games storage: game_id = game object
         self.__games = {}
