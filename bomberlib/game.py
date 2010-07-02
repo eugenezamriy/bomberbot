@@ -7,6 +7,7 @@ import random
 import threading
 import time
 import Queue
+import copy
 
 from bomberlib.errors import *
 from bomberlib.bomb import Bomb
@@ -157,7 +158,10 @@ class Game(threading.Thread):
             j = self.__complete_turn(turn_number, turns)
             for p in self.__players:
                 # TODO: send message to each player here
-                pass
+                new_j = j.copy()
+                new_j["game_id"] = self.__game_id
+                new_j["session_id"] = p.session_id
+                self.__out_queue.put((p.socket_id, new_j), block=True, timeout=None)
             turn_number += 1
 
     def __complete_turn(self, turn_number, turns):
