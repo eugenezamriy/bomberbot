@@ -245,7 +245,8 @@ class Game(threading.Thread):
             bomb.player.bombs_count -= 1
             j["bombs"].append({"owner": bomb.player.name, "pos": [bomb.x, bomb.y]})
         #
-        j["players"].append({"name": p.name, "pos": [p.x, p.y], "bombs_count": p.bombs_count,
+        for p in self.__players:
+            j["players"].append({"name": p.name, "pos": [p.x, p.y], "bombs_count": p.bombs_count,
                              "bomb_radius": p.bomb_radius})
         return j
 
