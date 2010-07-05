@@ -48,7 +48,7 @@ game_types_table = Table("game_types", meta,
                          Column("type_id", UnicodeText, nullable=False, unique=True),
                          Column("map_id", Integer, ForeignKey("maps.id"), nullable=False),
                          # one turn time in milliseconds
-                         Column("turn_time", Integer, default=10000, nullable=False),
+                         Column("turn_time", Integer, default=20000, nullable=False),
                          Column("init_bombs_count", Integer, default=1, nullable=False),
                          Column("max_bombs_count", Integer, default=5, nullable=False),
                          Column("init_bomb_radius", Integer, default=1, nullable=False),
