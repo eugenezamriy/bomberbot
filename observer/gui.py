@@ -6,59 +6,73 @@ from PyQt4 import QtGui, QtCore, uic
 from PyQt4.QtCore import Qt, QSettings
 
 from observer.network import Network
-from observer.logic import Player, Cell
+from observer.logic import Player, Cell, Session
 from observer.errors import NetworkError
 from observer.misc import TableModel
 
 form_class, base_class = uic.loadUiType("observer/enter_window.ui")
 
+session = Session()
+
 class EnterWindow(QtGui.QWidget, form_class):
 
-    def __init__(self, network, *args):
+    network = None
+    __selected_row = []
+
+    def __init__(self, *args):
         super(EnterWindow, self).__init__(*args)
         self.setupUi(self)
 
-        self.__games = []
-        self.__game_types = [] 
-        self.__selected_row = []
-        self.__network = network 
         self.__settings = QSettings(self)
-        self.__server = str(self.__settings.value("server", "localhost:41000").toString())
-        self.__email = str(self.__settings.value("email", "test@example.com").toString())
-        self.__id = str(self.__settings.value("id", "test_id1").toString())
+        self.__server = str(self.__settings.value("server", 
+            "localhost:41000").toString())
+        self.__email = str(self.__settings.value("email", 
+            "test@example.com").toString())
+        self.__user_id = str(self.__settings.value("id", 
+            "test_id1").toString())
 
-        self.id_edit.setText(self.__id)
+        self.id_edit.setText(self.__user_id)
         self.email_edit.setText(self.__email)
         self.server_edit.setText(self.__server)
+
         self.save_info_button.setEnabled(False)
-        self.setWindowTitle("Observer")
+        self.setWindowTitle("Bomberbot client")
         self.setLayout(self.main_layout)
 
-    @QtCore.pyqtSlot()
-    def on_email_edit_textChanged(self):
-        self.save_info_button.setEnabled(True)
+    # logic
 
-    @QtCore.pyqtSlot()
-    def on_id_edit_textChanged(self):
-        self.save_info_button.setEnabled(True)
+    @QtCore.pyqtSlot('PyQt_PyObject')
+    def on_handshake_complete(self, message):
+        global session
+        session.set_id(message["session_id"])
+        session.set_game_types(message["game_types"])
 
-    @QtCore.pyqtSlot()
-    def on_save_info_button_clicked(self):
-        """ Called every time when user clicks save_info_button."""
-        # TODO: Add validation
-        self.__email = self.email_edit.text()
-        self.__id = self.id_edit.text()
-        self.__settings.setValue("email", self.__email)
-        self.__settings.setValue("id", self.__id)
+        if len(message["game_types"]) > 0:
+            headers = ["Game Type", 
+                       "Init Bombs Count", 
+                       "Max Players Count",
+                       "Field Size"]
+            data = [[x["type_id"], 
+                     x["init_bombs_count"], 
+                     x["max_players_count"],
+                     str(x["map_height"]) + "x" + str(x["map_width"])] 
+                     for x in message["game_types"]]
+            self.games_table.setModel(TableModel(data, headers, self))
+            self.games_table.resizeColumnsToContents()
+
+            self.__sel_model = self.games_table.selectionModel()
+            self.__sel_model.selectionChanged.connect(self.on_game_selected)
+        else:
+            self.__show_error("No started games found. Try again later.")
+
+    # gui event handlers
 
     @QtCore.pyqtSlot()
     def on_connect_button_clicked(self):
         """ Called every time when user clicks connect_button."""
-        port = 0
-        host = ""
-        # Get server address from input field.
+        host, port = "", 0
         server_address = str(self.server_edit.text())
-        # Validate server_address string and divides it into host and port
+        # Validate server_address and divide it into host and port.
         # TODO: Add more validation.
         delim_pos = server_address.find(":")
         if delim_pos != -1:
@@ -67,54 +81,62 @@ class EnterWindow(QtGui.QWidget, form_class):
         if delim_pos == -1 or host == "" or port == 0:
             self.__show_error("Wrong server address. Please enter a right one.")
             return 
-        # Connect to server.
-        try:
-            self.__network.connect(host, port)
-        except NetworkError, e:
-            self.__show_error(str(e))
+
+        if self.network:
+            if self.network.isRunning():
+                self.network.terminate()
         else:
-            try:
-                # Do handshake request and recieve server answer.
-                data = self.__network.handshake(self.__email, self.__id)
-            except NetworkError, e:
-                self.__show_error(str(e))
-            else:
-                self.__game_types = data["game_types"]
-                # TODO: replace with proper data.
-                self.games = []
-                # Put all recieved information in `games_table`.
-                self.__set_table_data()
+            self.network = Network(host, port)
+            self.network.handshake_complete.connect(self.on_handshake_complete)
+
+        self.network.start()
+
+        p = {"cmd"  : "handshake",
+             "email": self.__email,
+             "id"   : self.__user_id,
+             "type" : "player"}
+        self.network.send(p)
 
     @QtCore.pyqtSlot()
     def on_join_button_clicked(self):
-        """ Called every time when user clicks join_button."""
-        current_row = self.sel_model.selectedRows()[0].row()
-        game = self.__game_types[current_row]
-        self.game_window = GameWindow(game, self.__network)
-        self.game_window.show()
+        global session
+        session_id = session.get_id()
+        game_types = session.get_game_types()
+
+
+        current_row = self.__sel_model.selectedRows()[0].row()
+        game = game_types[current_row]
+        self.__wait_window = WaitWindow(self)
+        self.__wait_window.show()
+
+        p = {"cmd"       : "join",
+             "session_id": session_id,
+             "type_id"   : game["type_id"]}
+
+        self.network.send(p)
         self.hide()
 
-    @QtCore.pyqtSlot()
-    def on_games_table_selection_changed(self):
-        """ Called every time when user changes selection in games_table."""
+    @QtCore.pyqtSlot(QtGui.QItemSelection, QtGui.QItemSelection)
+    def on_game_selected(self, selected, deselected):
         self.join_button.setEnabled(True)
 
-    def __set_table_data(self):
-        """ Puts data from self.__game_types to self.games_table."""
-        if len(self.__game_types) > 0:
-            headers = ["Game Type", "Init Bombs Count", "Max Players Count",
-                "field_size"]
-            # Prepare data to inserting in `games_table`.
-            data = [[x["type_id"], x["init_bombs_count"], x["max_players_count"],
-                     str(x["map_height"]) + "x" + str(x["map_width"])] 
-                     for x in self.__game_types]
-            self.games_table.setModel(TableModel(data, headers, self))
-            self.games_table.resizeColumnsToContents()
-            # Set selection changes handler
-            self.sel_model = self.games_table.selectionModel()
-            self.sel_model.selectionChanged.connect(self.on_games_table_selection_changed)
-        else:
-            self.__show_notice("No started games found. Try again later.")
+    @QtCore.pyqtSlot(str)
+    def on_email_edit_textChanged(self, text):
+        self.save_info_button.setEnabled(True)
+
+    @QtCore.pyqtSlot(str)
+    def on_id_edit_textChanged(self, text):
+        self.save_info_button.setEnabled(True)
+
+    @QtCore.pyqtSlot()
+    def on_save_info_button_clicked(self):
+        # TODO: Add validation
+        self.__email = str(self.email_edit.text())
+        self.__user_id = str(self.id_edit.text())
+        self.__settings.setValue("email", self.__email)
+        self.__settings.setValue("id", self.__user_id)
+
+    # helper functions
         
     def __show_notice(self, notice):
         """ Shows message box with notice"""
@@ -135,6 +157,41 @@ class EnterWindow(QtGui.QWidget, form_class):
         mb.setIcon(QtGui.QMessageBox.Critical)
         mb.exec_()
 
+class WaitWindow(QtGui.QWidget):
+
+    def __init__(self, enter_window, *args):
+        super(WaitWindow, self).__init__(*args)
+
+        self.__enter_window = enter_window
+
+        self.__cancel_button = QtGui.QPushButton(self)
+        self.__info_label    = QtGui.QLabel(self)
+        self.__cancel_button.setText("Cancel")
+        self.__cancel_button.clicked.connect(self.on_cancel)
+        self.__info_label.setText("Wait until other players joined the game.")
+
+        layout = QtGui.QVBoxLayout()
+        layout.addWidget(self.__cancel_button)
+        layout.addWidget(self.__info_label)
+
+        self.__enter_window.network.game_started.connect(self.on_game_started)
+
+        self.setLayout(layout)
+
+    # logic
+    
+    @QtCore.pyqtSlot('PyQt_PyObject')
+    def on_game_started(self, data):
+        self.__game_window = GameWindow(data, self.__enter_window)
+        self.__game_window.show()
+        self.exit()
+
+    # gui event handlers
+
+    @QtCore.pyqtSlot()
+    def on_cancel(self):
+        self.__enter_window.show()
+        self.close()
 
 class FieldWidget(QtGui.QWidget):
     """ Game field."""
@@ -200,7 +257,7 @@ class FieldWidget(QtGui.QWidget):
 form_game_class, base_game_class = uic.loadUiType("observer/game_window.ui")
 class GameWindow(QtGui.QWidget, form_game_class):
 
-    def __init__(self, game_data, network):
+    def __init__(self, game_data, enter_window):
         super(GameWindow, self).__init__()
 
         self.setupUi(self)
@@ -223,5 +280,5 @@ class GameWindow(QtGui.QWidget, form_game_class):
         self.setLayout(self.main_layout)
         self.setWindowTitle("Bomberbot")
 
-    def new_turn(self, data):
+    def turn_complete(self, data):
         pass
