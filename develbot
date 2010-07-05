@@ -36,6 +36,10 @@ class Player(object):
         self.y = y
 
 
+class Bomb(object):
+    pass
+
+
 class DevelBot(object):
 
     def __init__(self, address, port):
@@ -126,7 +130,13 @@ class DevelBot(object):
         except:
             wt.must_run = False
             sys.exit(1)
-        print reply
+        wt.must_run = False
+        if reply["status"] != "turn_completed":
+            sys.stderr.write("Error, can't receive new turn: %s (%s)" % (reply["reason"], reply["code"]))
+            sys.exit(1)
+        for p in reply["players"]:
+            self.__move_player(p)
+        self.__turn_number += 1
 
     def cell_to_term(self, cell):
         if cell == STONE:
@@ -136,6 +146,60 @@ class DevelBot(object):
         elif isinstance(cell, Player):
             return cell.name
         return " "
+
+    def __move_player(self, j):
+        """Processes players movements."""
+        name = self.name_to_number(j["name"])
+        player = None
+        for p in self.__players:
+            if p.name == name:
+                player = p
+                break
+        if player is None:
+            raise Exception("can't find player %s on the map" % j["name"])
+        self.__remove_from_cell(player)
+        player.x, player.y = j["pos"]
+        self.__place_to_cell(player)
+
+    def __remove_from_cell(self, obj):
+        """
+        Removes given object from its current map cell.
+        
+        @type obj: Bomb or Player
+        @param obj: Bomb or Player instance to be removed.
+        """
+        x = obj.x
+        y = obj.y
+        cell = self.__map[y][x]
+        if isinstance(cell, Player) or isinstance(cell, Bomb) or \
+               (type(cell) == list and len(cell == 1)):
+            self.__map[y][x] = BLANK
+        elif type(self.__map[y][x]) == list:
+            # another player or bomb located in cell
+            self.__map[y][x].remove(obj)
+        else:
+            print type(self.__map[y][x])
+            print self.__map[y][x]
+            raise RuntimeError("unknown element found in position %s,%s" % (x, y))
+
+    def __place_to_cell(self, obj):
+        """
+        Places given object into map cell.
+        
+        @type obj: Bomb or Player
+        @param obj: Bomb or Player instance to be placed.
+        """
+        x = obj.x
+        y = obj.y
+        cell = self.__map[y][x]
+        if cell == BLANK:
+            self.__map[y][x] = obj
+        elif isinstance(cell, Player) or isinstance(cell, Bomb):
+            self.__map[y][x] = [self.__map[y][x], obj]
+        elif type(cell) == list:
+            self.__map[y][x].append(obj)
+        else:
+            raise RuntimeError("unknown element found in position %s,%s" % (x, y))
 
     def load_map(self, j):
         self.__map_width = j["map_width"]
