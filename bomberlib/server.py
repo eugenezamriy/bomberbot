@@ -70,8 +70,9 @@ class Server:
                     self.__logger.debug("client connected. address: %s, socket id: %s" % (address, id(newsock)))
                 else:
                     s_id = id(sockobj)            # Socket id.
-                    chunk = sockobj.recv(1024)
-                    if not chunk:
+                    try:
+                        chunk = sockobj.recv(1024)
+                    except socket.error, e:
                         self.__remove_socket(sockobj)
                         continue
                     #
