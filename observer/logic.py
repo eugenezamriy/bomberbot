@@ -32,20 +32,27 @@ class FieldObject():
 class Player(FieldObject):
     """ Bot or human."""
     def __init__(self, image, name, bombs_count, bombs_radius):
-        super(Player, self).__init__(self, image)
+        FieldObject.__init__(self, image)
 
 class Cell():
     """ One cell on the field."""
-    def __init__(self, color, objects = []):
-        self.__objects = objects
-        self.__color = QtGui.QColor(255, 255, 255, 255)
+    def __init__(self, color = None, objects = []):
+        self.__objects = objects[:]
+        if not color:
+            self.__color = QtGui.QColor(255, 255, 255, 255)
+        else:
+            self.__color = color
 
-    def add_objects(self, object):
+    def add_object(self, object):
         """
         @type objects:  GameObject.
         @param objects: Object to place at the sell.
         """
         self.__objects.append(object)
+
+    def del_object(self, object):
+        if object in self.__objects:
+            self.__objects.remove(object)
     
     def get_objects(self):
         """
@@ -54,7 +61,6 @@ class Cell():
         """
         return self.__objects
     
-
     # property '__color' (QtGui.QColor)
     def set_color(self, color):
         """

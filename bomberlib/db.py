@@ -198,4 +198,11 @@ def init_db(db_string, debug=False):
     game_type = GameType(u"2-4_deathmatch")
     game_type.map = map_
     session.add(map_)
+    # Map for only one player. Useful for tests.
+    map2_ = Map(u"client tester", 6, 6, u'{"players":[[0,0]],"metal":[[2,0],[2,1],[1,2],[2,2],[1,3],[1,4],[2,4],[2,5]],"stone":[[3,0],[3,1],[3,2],[4,2],[4,3],[3,4],[4,4],[3,5]]}')
+    game_type2 = GameType(u"1-1_deathmatch")
+    game_type2.map = map2_
+    game_type2.min_players_count = 1
+    game_type2.max_players_count = 1
+    session.add(map2_)
     session.commit()

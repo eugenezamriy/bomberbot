@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>540</width>
-    <height>290</height>
+    <width>534</width>
+    <height>327</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,7 +19,7 @@
      <x>10</x>
      <y>0</y>
      <width>521</width>
-     <height>281</height>
+     <height>321</height>
     </rect>
    </property>
    <layout class="QHBoxLayout" name="main_layout">
@@ -28,23 +28,26 @@
     </property>
     <item>
      <layout class="QVBoxLayout" name="field_layout">
+      <property name="sizeConstraint">
+       <enum>QLayout::SetMaximumSize</enum>
+      </property>
       <item>
        <widget class="QLabel" name="log_label">
         <property name="text">
          <string>Log:</string>
         </property>
-        <property name="buddy">
-         <cstring>textBrowser</cstring>
-        </property>
        </widget>
       </item>
       <item>
-       <widget class="QTextBrowser" name="textBrowser">
+       <widget class="QTextEdit" name="log_view">
         <property name="maximumSize">
          <size>
           <width>16777215</width>
           <height>80</height>
          </size>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -52,6 +55,9 @@
     </item>
     <item>
      <layout class="QVBoxLayout" name="info_layout">
+      <property name="sizeConstraint">
+       <enum>QLayout::SetMinimumSize</enum>
+      </property>
       <item>
        <widget class="QLabel" name="players_label">
         <property name="text">
@@ -63,7 +69,20 @@
        </widget>
       </item>
       <item>
-       <widget class="QTableView" name="players_table"/>
+       <widget class="QTableView" name="players_table">
+        <property name="minimumSize">
+         <size>
+          <width>200</width>
+          <height>80</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>250</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
       </item>
       <item>
        <widget class="QLabel" name="bonuses_label">
@@ -76,7 +95,20 @@
        </widget>
       </item>
       <item>
-       <widget class="QTableView" name="bonuses_table"/>
+       <widget class="QTableView" name="bonuses_table">
+        <property name="minimumSize">
+         <size>
+          <width>200</width>
+          <height>80</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>250</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
       </item>
       <item>
        <widget class="QLabel" name="bombs_label">
@@ -89,7 +121,20 @@
        </widget>
       </item>
       <item>
-       <widget class="QListView" name="bombs_table"/>
+       <widget class="QListView" name="bombs_table">
+        <property name="minimumSize">
+         <size>
+          <width>200</width>
+          <height>80</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>250</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
       </item>
      </layout>
     </item>

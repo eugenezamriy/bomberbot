@@ -4,9 +4,10 @@
 
 from PyQt4 import QtGui, QtCore, uic
 from PyQt4.QtCore import Qt, QSettings
+from PyQt4.QtGui import QColor, QImage
 
 from observer.network import Network
-from observer.logic import Player, Cell, Session
+from observer.logic import *
 from observer.errors import NetworkError
 from observer.misc import TableModel
 
@@ -184,7 +185,7 @@ class WaitWindow(QtGui.QWidget):
     def on_game_started(self, data):
         self.__game_window = GameWindow(data, self.__enter_window)
         self.__game_window.show()
-        self.exit()
+        self.close()
 
     # gui event handlers
 
@@ -196,67 +197,96 @@ class WaitWindow(QtGui.QWidget):
 class FieldWidget(QtGui.QWidget):
     """ Game field."""
 
-    def __init__(self, size = (3, 3), cell_size = 30, parent = None):
+    def __init__(self, init_data, size = (3, 3), cell_size = 32, parent = None):
         super(FieldWidget, self).__init__(parent)
 
-        self.cell_size = cell_size
-        self.cell_vertical, self.cell_horizontal = size
-        self.cells = self.__generate_field()
+        self.__cell_size = cell_size
+        self.__map_height, self.__map_width = size
+        self.__generate_field(init_data)
+        self.__data = init_data
 
         self.setBackgroundRole(QtGui.QPalette.Base)
         self.setSizePolicy(QtGui.QSizePolicy.Expanding,
                 QtGui.QSizePolicy.Expanding)
 
-    def minimumSizeHint(self):
-        return QtCore.QSize(self.cell_size * self.cell_vertical + 2,
-                self.cell_size * self.cell_horizontal + 2)
+    def set_objects(self, data):
+        players = 
 
-    def sizeHint(self):
-        return QtCore.QSize(self.cell_size * self.cell_vertical + 2,
-                self.cell_size * self.cell_horizontal + 2)
+    def __set_object_at(self, object, x, y):
+        """ Place object `object` at the cell with coords (x, y).
 
-    def set_object_at(self, x, y, object):
-        """ Sets object `object` at the cell with coords (x, y).
-        
-        @type x:       int
-        @param x:      x coordinate.
-        @type y:       int
-        @param y:      y coordinate.
         @type object:  FieldObject
-        @param object: Object to set at the sell."""
-        self.cells[x][y].set_object(object)
+        @param object: Object to place at the sell."""
+        if x >= 0 and x < self.__map_width:
+            if y >= 0 and y < self.__map_height:
+                self.__field[y][x].add_object(object)
 
-    def __generate_field(self):
-        cell_size = self.cell_size
-        vsize, hsize = self.cell_vertical, self.cell_horizontal
-        field = [[None] * hsize for x in range(vsize)]
-        for i in xrange(0, vsize):
-            for j in xrange(0, hsize):
-                cell = Cell(cell_size)
-                cell.set_pos((i * cell_size, j * cell_size))
-                field[i][j] = cell
-        return field
+    def __del_object_from(self, x, y, object):
+        if x >= 0 and x < self.__map_width:
+            if y >= 0 and y < self.__map_height:
+                self.__field[y][x].del_object(object)
+
+    def __generate_field(self, data):
+        cell_size = self.__cell_size
+        height, width = self.__map_height, self.__map_width
+        self.__field = [[None] * width for x in range(height)]
+        for i in xrange(0, height):
+            for j in xrange(0, width):
+                cell = Cell()
+                cell.set_color(QColor(255, 255, 255, 0))
+                self.__field[i][j] = cell
+        players = data["players"]
+        metals  = data["metal"]
+        stones  = data["stone"]
+        sprite = QImage("observer/images/bot.gif")
+        for player in players:
+            name = player["name"]
+            x, y = player["pos"]
+            player_ = Player(sprite, name, 0, 0)
+            self.__set_object_at(player_, x, y)
+        sprite = QImage("observer/images/wood.jpg")
+        for stone in stones:
+            x, y = stone
+            stone_ = FieldObject(sprite)
+            self.__set_object_at(stone_, x, y)
+        sprite = QImage("observer/images/brick.jpg")
+        for metal in metals:
+            x, y = metal
+            metal_ = FieldObject(sprite)
+            self.__set_object_at(metal_, x, y)
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
         painter.setPen(QtGui.QPen(QtGui.QColor(0, 0, 0, 255), 1))
-        for cells_row in self.cells:
-            for cell in cells_row:
+        height, width = self.__map_height, self.__map_width
+        for i in xrange(0, height):
+            for j in xrange(0, width):
+                cell = self.__field[i][j]
                 painter.setBrush(QtGui.QBrush(cell.get_color()))
-                cell_x, cell_y = cell.get_pos()
-                cell_size = cell.get_size()
+                cell_size = self.__cell_size
+                cell_x, cell_y = cell_size * i, cell_size * j 
                 painter.drawRect(cell_x, cell_y, cell_size, cell_size)
-                object = cell.get_object()
-                if object:
+                objects = cell.get_objects()
+                for object in objects:
                     image = object.get_image()
                     x = cell_x + ((cell_size - image.width()) / 2)
                     y = cell_y + ((cell_size - image.height()) / 2)
                     painter.drawImage(x, y, image)
 
+    # Qt service functions
+
+    def minimumSizeHint(self):
+        return QtCore.QSize(self.__cell_size * self.__map_height + 2,
+                self.__cell_size * self.__map_width + 2)
+
+    def sizeHint(self):
+        return QtCore.QSize(self.__cell_size * self.__map_height + 2,
+                self.__cell_size * self.__map_width + 2)
 
 form_game_class, base_game_class = uic.loadUiType("observer/game_window.ui")
 class GameWindow(QtGui.QWidget, form_game_class):
 
+    __raw_log = ""
     def __init__(self, game_data, enter_window):
         super(GameWindow, self).__init__()
 
@@ -264,21 +294,29 @@ class GameWindow(QtGui.QWidget, form_game_class):
 
         self.game_data = game_data
         h, w = game_data['map_height'], game_data['map_width']
-        self.field = FieldWidget((h, w), parent = self)
+        self.__field = FieldWidget(game_data, (h, w), parent = self)
         
-        self.network = network
-        self.network.add_reciever(self.new_turn)
+        self.__network = enter_window.network
 
         self.scroll_area = QtGui.QScrollArea(self)
-        self.scroll_area.setWidget(self.field)
-
-        player = Player("imgages/bot.gif", (0, 0))
-        self.field.set_object_at(0, 0, player)
+        self.scroll_area.setWidget(self.__field)
+        self.__log = QtGui.QTextDocument()
+        self.log_view.setDocument(self.__log)
 
         self.field_layout.insertWidget(0, self.scroll_area)
 
         self.setLayout(self.main_layout)
         self.setWindowTitle("Bomberbot")
 
-    def turn_complete(self, data):
-        pass
+        self.__network.set_turn_recieving(True)
+        self.__network.turn_complete.connect(self.on_turn_complete)
+        self.__network.error_occured.connect(self.on_error)
+
+    @QtCore.pyqtSlot('PyQt_PyObject')
+    def on_turn_complete(self, data):
+        self.__raw_log += "new_turn" + "\n"
+        self.__log.setPlainText(self.__raw_log)
+
+    @QtCore.pyqtSlot(str)
+    def on_error(self, error):
+        print "Error: %s" % str(error)

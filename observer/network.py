@@ -19,6 +19,7 @@ class Network(QThread):
     __is_connected = False
     __sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     __out_queue = Queue(10)
+    __turn_recieving = False
 
     # signals
     handshake_complete = QtCore.pyqtSignal('PyQt_PyObject')
@@ -46,7 +47,7 @@ class Network(QThread):
 
         while True:
             sended = False
-            while not sended:
+            while not sended and not self.__turn_recieving:
                 if self.__out_queue.empty():
                     sleep(0.1) # Avoid cpu eating.
                     continue
@@ -64,7 +65,6 @@ class Network(QThread):
                     if message["status"] == "turn_completed":
                         self.turn_complete.emit(message)
                     elif message["status"] == "game_started":
-                        print "game started"
                         self.game_started.emit(message)
                     elif message["status"] == "ok":
                         self.handshake_complete.emit(message)
@@ -76,6 +76,23 @@ class Network(QThread):
         if self.__is_connected:
             self.__sock.close()
             self.__is_connected = False
+            self.__turn_recieving = False
+
+    # property '__turn_recieving' (bool)
+    def set_turn_recieving(self, turn_recieving):
+        """
+        @type turn_recieving:  bool  
+        @param turn_recieving: Indicates recieving state.  
+        """
+        self.__turn_recieving = turn_recieving
+    
+    def get_turn_recieving(self):
+        """
+        @rtype:  bool
+        @return: Indicates recieving state.
+        """
+        return self.__turn_recieving
+    
         
     def __connect(self):
         """ Connects to the server host:port"""
