@@ -1,10 +1,15 @@
 Description: Turn-based bomberman clone for bots playing. 
 
-Dependencies: - Raphaël (MIT license, included in distribution)
-                http://raphaeljs.com/
-              - Ext Core (MIT license, included in distribution)
-                http://www.sencha.com/products/core/
-              - SQLAlchemy
+Dependencies: 
+For server:
+    - SQLAlchemy
+For map editor:
+    - Raphaël (MIT license, included in distribution)
+      http://raphaeljs.com/
+    - Ext Core (MIT license, included in distribution)
+      http://www.sencha.com/products/core/
+For observer:
+    - PyQt4
 
 Testing: During startup bomberbot server creates sqlite3 database file bomberbot.db with test data.
          Test bots credentials: email - test@example.com

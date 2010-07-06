@@ -269,7 +269,7 @@ class Game(threading.Thread):
         if isinstance(cell, Player) or isinstance(cell, Bomb) or \
                (type(cell) == list and len(cell == 1)):
             self.__map[y][x] = BLANK
-        elif type(self.__map[oy][ox]) == list:
+        elif type(self.__map[y][x]) == list:
             # another player or bomb located in cell
             self.__map[y][x].remove(obj)
         else:

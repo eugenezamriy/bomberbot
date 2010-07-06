@@ -1,6 +1,6 @@
 # -*- mode:python; coding:utf-8; -*-
 # created: 27.06.2010 13:15
-# description: Bomberbot player representation.
+# description: Bomberbot bomb representation.
 
 
 class Bomb(object):
