@@ -11,6 +11,7 @@ import copy
 
 from bomberlib.errors import *
 from bomberlib.bomb import Bomb
+from bomberlib.radius import Radius
 from bomberlib.player import Player
 from bomberlib.logger import debug, error
 
@@ -219,7 +220,8 @@ class Game(threading.Thread):
                 if max_id is None or t["turn_id"] > max_id:
                     right_turns[p] = t
                     max_id = t["turn_id"]
-        # TODO: bonuses support must be added
+
+        # TODO: bonuses generation
         # players movements
         for p in right_turns:
             ox, oy = right_turns[p]["move"][0]
