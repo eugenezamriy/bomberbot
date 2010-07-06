@@ -5,11 +5,14 @@
 
 
 import getopt
-import json
 import socket
 import sys
 import threading
 import time
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 
 BLANK, STONE, METAL = range(3)

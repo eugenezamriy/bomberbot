@@ -3,13 +3,16 @@
 # description: BomberBot server.
 
 import datetime
-import json
 import logging
 from select import select
 import socket
 #from socket import socket, AF_INET, SOCK_STREAM
 import time
 import Queue
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 from bomberlib.errors import generate_error
 

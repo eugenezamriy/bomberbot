@@ -2,9 +2,12 @@
 # created: 26.06.2010 18:24
 # description: Network communictaion
 import socket
-import json
 from time import sleep
 from Queue import Queue
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 from PyQt4 import QtCore
 from PyQt4.QtCore import QThread
