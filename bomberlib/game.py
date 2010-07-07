@@ -218,7 +218,7 @@ class Game(threading.Thread):
                 cell = self.__map[i][x]
                 if cell == BLANK:
                     pass
-                elif cell = STONE:                    
+                elif cell == STONE:                    
                     j["destroyed_walls"].append([x, i])
                     south = i
                     break
