@@ -190,6 +190,7 @@ class Game(threading.Thread):
             x = bomb.x
             y = bomb.y
             r = bomb.player.bomb_radius
+
             # north direction
             north = y - r if (y - r) > 0 else 0
             i = y - 1
@@ -210,6 +211,57 @@ class Game(threading.Thread):
                 #TODO process bomb/list of players/bombs here
                 i -= 1
             # TODO process another directions and finish message
+            # south direction
+            south = y + r if (y + r) > self.__map_height else self.__map_height
+            i = y + 1
+            while i <= south:
+                cell = self.__map[i][x]
+                if cell == BLANK:
+                    pass
+                elif cell = STONE:                    
+                    j["destroyed_walls"].append([x, i])
+                    south = i
+                    break
+                elif cell == METAL:
+                    south = i
+                    break
+                elif isinstance(cell, Player):
+                    j["killed"].append(cell.name)
+                i += 1
+            # west direction
+            west = x - r if (x - r) > 0 else 0
+            i = x - 1
+            while i >= west:
+                cell = self.__map[y][i]
+                if cell == BLANK:
+                    pass
+                elif cell == STONE:
+                    j["destroyed_walls"].append([i, y])
+                    west = i
+                    break
+                elif cell == METAL:
+                    west = i
+                    break
+                elif isinstance(cell, Player):
+                    j["killed"].append(cell.name)
+                i -= 1
+            # east direction
+            east = x + r if (x + r) > self.__map_width else self.__map_width
+            i = x + 1
+            while i <= east:
+                cell = self.__map[y][i]
+                if cell == BLANK:
+                    pass
+                elif cell == STONE:
+                    j["destroyed_walls"].append([i, y])
+                    east = i
+                    break
+                elif cell == METAL:
+                    east = i
+                    break
+                elif isinstance(cell, Player):
+                    j["killed"].append(cell.name)
+                i += 1             
             #
             j["exploded_bombs"].append({"center": [x, y]})
         # find latest players turns (with biggest turn_id)
