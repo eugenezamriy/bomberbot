@@ -11,7 +11,8 @@ import copy
 
 from bomberlib.errors import *
 from bomberlib.bomb import Bomb
-from bomberlib.radius import Radius
+# TODO: check this dependence
+# from bomberlib.radius import Radius
 from bomberlib.player import Player
 from bomberlib.logger import debug, error
 
