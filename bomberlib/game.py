@@ -11,7 +11,8 @@ import copy
 
 from bomberlib.errors import *
 from bomberlib.bomb import Bomb
-from bomberlib.radius import Radius
+# TODO: check this dependence
+# from bomberlib.radius import Radius
 from bomberlib.player import Player
 from bomberlib.logger import debug, error
 
@@ -174,6 +175,98 @@ class Game(threading.Thread):
         @type turns:        dic
         @param turns:       Turns dictionary (player = movement message).
         """
+
+        def calculate_explosions(j):
+            # blow bomb
+            def blow_bomb(j, bomb):
+                # bomb coordinates and explosion radius
+                x = bomb.x
+                y = bomb.y
+                r = bomb.player.bomb_radius
+                # north direction
+                north = y - r if (y - r) > 0 else 0
+                i = y - 1
+                while i >= north:
+                    cell = self.__map[i][x]
+                    if cell == BLANK:
+                        pass
+                    elif isinstance(cell, Player):
+                        j["killed"].append(cell.name)
+                    elif isinstance(cell, Bomb):
+                        blow_bomb(j, cell)
+                    elif cell == STONE:
+                        j["destroyed_walls"].append([x, i])
+                        north = i
+                        break
+                    elif cell == METAL:
+                        north = i
+                        break
+                    i -= 1
+                # south direction
+                south = y + r if (y + r) > self.__map_height else self.__map_height
+                i = y + 1
+                while i <= south:
+                    cell = self.__map[i][x]
+                    if cell == BLANK:
+                        pass
+                    elif isinstance(cell, Player):
+                        j["killed"].append(cell.name)
+                    elif isinstance(cell, Bomb):
+                        blow_bomb(j, cell)
+                    elif cell == STONE:                    
+                        j["destroyed_walls"].append([x, i])
+                        south = i
+                        break
+                    elif cell == METAL:
+                        south = i
+                        break
+                    i += 1
+                # west direction
+                west = x - r if (x - r) > 0 else 0
+                i = x - 1
+                while i >= west:
+                    cell = self.__map[y][i]
+                    if cell == BLANK:
+                        pass
+                    elif isinstance(cell, Player):
+                        j["killed"].append(cell.name)
+                    elif isinstance(cell, Bomb):
+                        blow_bomb(j, cell)
+                    elif cell == STONE:
+                        j["destroyed_walls"].append([i, y])
+                        west = i
+                        break
+                    elif cell == METAL:
+                        west = i
+                        break
+                    i -= 1
+                # east direction
+                east = x + r if (x + r) > self.__map_width else self.__map_width
+                i = x + 1
+                while i <= east:
+                    cell = self.__map[y][i]
+                    if cell == BLANK:
+                        pass
+                    elif isinstance(cell, Player):
+                        j["killed"].append(cell.name)
+                    elif isinstance(cell, Bomb):
+                        blow_bomb(j, cell)
+                    elif cell == STONE:
+                        j["destroyed_walls"].append([i, y])
+                        east = i
+                        break
+                    elif cell == METAL:
+                        east = i
+                        break
+                    i += 1
+                j["exploded_bombs"].append({"center": [x, y]})
+
+            # calculate bombs explosions
+            for bomb in self.__bombs:
+                if bomb.turn_detonated != turn_number:
+                    continue
+                blow_bomb(j, bomb)
+                
         j = {"status": "turn_completed",
              "turn_number": turn_number,
              "killed": [],
@@ -183,35 +276,9 @@ class Game(threading.Thread):
              "bombs": [],
              "new_bonuses": [],
              "taken_bonuses": []}
-        # calculate bombs explosions
-        for bomb in self.__bombs:
-            if bomb.turn_detonated != turn_number:
-                continue
-            x = bomb.x
-            y = bomb.y
-            r = bomb.player.bomb_radius
-            # north direction
-            north = y - r if (y - r) > 0 else 0
-            i = y - 1
-            while i >= north:
-                cell = self.__map[i][x]
-                if cell == BLANK:
-                    pass
-                elif cell == STONE:
-                    j["destroyed_walls"].append([x, i])
-                    north = i
-                    break
-                elif cell == METAL:
-                    north = i
-                    break
-                elif isinstance(cell, Player):
-                    j["killed"].append(cell.name)
-                    # TODO: mark player as killed or remove from players list.
-                #TODO process bomb/list of players/bombs here
-                i -= 1
-            # TODO process another directions and finish message
-            #
-            j["exploded_bombs"].append({"center": [x, y]})
+
+        calculate_explosions(j)
+
         # find latest players turns (with biggest turn_id)
         right_turns = {}
         for p in turns:
