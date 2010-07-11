@@ -225,7 +225,7 @@ class Game(threading.Thread):
                 # east direction
                 i = 1
                 while i <= r and x + i < self.__map_width:
-                    can_proceed = explode_cell(j, x - i, y)
+                    can_proceed = explode_cell(j, x + i, y)
                     if not can_proceed:
                         break
                     i += 1
