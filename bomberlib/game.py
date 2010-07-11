@@ -177,86 +177,56 @@ class Game(threading.Thread):
         """
 
         def calculate_explosions(j):
+            # explodes target cell
+            # returns True if explosion can proceed in this direction
+            def explode_cell(j, x, y):
+                cell = self.__map[x][y]
+                if cell == BLANK:
+                    return True
+                elif isinstance(cell, Player):
+                    j["killed"].append(cell.name)
+                elif isinstance(cell, Bomb):
+                    blow_bomb(j, cell)
+                    return True
+                elif cell == STONE:
+                    j["destroyed_walls"].append([x, y])
+                    return False
+                elif cell == METAL:
+                    return False
+            
             # blow bomb
             def blow_bomb(j, bomb):
+                # TODO: kill any players in cell with bomb 
                 # bomb coordinates and explosion radius
                 x = bomb.x
                 y = bomb.y
                 r = bomb.player.bomb_radius
                 # north direction
-                north = y - r if (y - r) > 0 else 0
-                i = y - 1
-                while i >= north:
-                    cell = self.__map[i][x]
-                    if cell == BLANK:
-                        pass
-                    elif isinstance(cell, Player):
-                        j["killed"].append(cell.name)
-                    elif isinstance(cell, Bomb):
-                        blow_bomb(j, cell)
-                    elif cell == STONE:
-                        j["destroyed_walls"].append([x, i])
-                        north = i
+                i = 1
+                while i <= r and y - i >= 0:
+                    can_proceed = explode_cell(j, x, y - i)
+                    if not can_proceed:
                         break
-                    elif cell == METAL:
-                        north = i
-                        break
-                    i -= 1
+                    i += 1
                 # south direction
-                south = y + r if (y + r) > self.__map_height else self.__map_height
-                i = y + 1
-                while i <= south:
-                    cell = self.__map[i][x]
-                    if cell == BLANK:
-                        pass
-                    elif isinstance(cell, Player):
-                        j["killed"].append(cell.name)
-                    elif isinstance(cell, Bomb):
-                        blow_bomb(j, cell)
-                    elif cell == STONE:                    
-                        j["destroyed_walls"].append([x, i])
-                        south = i
-                        break
-                    elif cell == METAL:
-                        south = i
+                i = 1
+                while i <= r and y + i < self.__map_height:
+                    can_proceed = explode_cell(j, x, y + i)
+                    if not can_proceed:
                         break
                     i += 1
                 # west direction
-                west = x - r if (x - r) > 0 else 0
-                i = x - 1
-                while i >= west:
-                    cell = self.__map[y][i]
-                    if cell == BLANK:
-                        pass
-                    elif isinstance(cell, Player):
-                        j["killed"].append(cell.name)
-                    elif isinstance(cell, Bomb):
-                        blow_bomb(j, cell)
-                    elif cell == STONE:
-                        j["destroyed_walls"].append([i, y])
-                        west = i
+                i = 1
+                while i <= r and x - i >= 0:
+                    can_proceed = explode_cell(j, x - i, y)
+                    if not can_proceed:
                         break
-                    elif cell == METAL:
-                        west = i
-                        break
-                    i -= 1
+                    i += 1
                 # east direction
-                east = x + r if (x + r) > self.__map_width else self.__map_width
-                i = x + 1
-                while i <= east:
-                    cell = self.__map[y][i]
-                    if cell == BLANK:
-                        pass
-                    elif isinstance(cell, Player):
-                        j["killed"].append(cell.name)
-                    elif isinstance(cell, Bomb):
-                        blow_bomb(j, cell)
-                    elif cell == STONE:
-                        j["destroyed_walls"].append([i, y])
-                        east = i
-                        break
-                    elif cell == METAL:
-                        east = i
+                i = 1
+                while i <= r and x + i < self.__map_width:
+                    can_proceed = explode_cell(j, x - i, y)
+                    if not can_proceed:
                         break
                     i += 1
                 j["exploded_bombs"].append({"center": [x, y]})
