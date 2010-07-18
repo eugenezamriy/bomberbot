@@ -40,7 +40,11 @@ class Player(object):
 
 
 class Bomb(object):
-    pass
+
+    def __init__(self, p_name, x, y):
+        self.p_name = p_name
+        self.x = x
+        self.y = y
 
 
 class DevelBot(object):
@@ -84,7 +88,7 @@ class DevelBot(object):
 
     def process_turn(self):
         print "Your movement:"
-        for b in ("up", "down", "left", "right", "bomb"):
+        for b in ("up", "down", "left", "right", "pass", "bomb"):
             print "    %s - %s" % (b[0], b)
         sys.stdout.write("turn %s> " % self.__turn_number)
         sys.stdout.flush()
@@ -115,6 +119,8 @@ class DevelBot(object):
             elif l == "r":
                 j["move"].append([p.x + 1, p.y])
                 cur_pos[0] += 1
+            elif l == "p":
+                j["move"].append([p.x, p.y])
             elif l == "b":
                 j["bomb"] = [cur_pos[0], cur_pos[1]]
             else:
@@ -137,9 +143,44 @@ class DevelBot(object):
         if reply["status"] != "turn_completed":
             sys.stderr.write("Error, can't receive new turn: %s (%s)" % (reply["reason"], reply["code"]))
             sys.exit(1)
-        for p in reply["players"]:
-            self.__move_player(p)
+        map(self.__move_player, reply["players"])
+        map(lambda b: self.__place_to_cell(Bomb(b["owner"], b["pos"][0], b["pos"][1])),
+            reply["bombs"])
+        map(self.__destroy_wall, reply["destroyed_walls"])
+        map(self.__explode_bomb, reply["exploded_bombs"])
         self.__turn_number += 1
+
+    def __explode_bomb(self, j):
+        x, y = j["center"]
+        try:
+            cell = self.__map[y][x]
+        except:
+            sys.stderr.write("invalid exploded bomb coordinates: %s,%s" % (x, y))
+            return
+        if isinstance(cell, Bomb):
+            self.__map[y][x] = BLANK
+            return
+        elif type(cell) == list:
+            for obj in cell:
+                if isinstance(obj, Bomb):
+                    cell.remove(obj)
+                    if len(cell) == 0:
+                        self.__map[y][x] = BLANK
+                    return
+        sys.stderr.write("there are no bomb with coordinates: %s,%s" % (x, y))
+        return
+
+    def __destroy_wall(self, pos):
+        x, y = pos
+        try:
+            cell = self.__map[y][x]
+        except:
+            sys.stderr.write("invalid destroyed wall coordinates: %s,%s" % (x, y))
+            return
+        if cell != STONE:
+            sys.stderr.write("there are no stone wall with coordinates: %s,%s" % (x,y))
+            return
+        self.__map[y][x] = BLANK
 
     def cell_to_term(self, cell):
         if cell == STONE:
@@ -148,6 +189,18 @@ class DevelBot(object):
             return u"%"
         elif isinstance(cell, Player):
             return cell.name
+        elif isinstance(cell, Bomb):
+            return u"@"
+        elif type(cell) == list:
+            # TODO: so ugly code
+            for e in cell:
+                if isinstance(e, Player):
+                    return e.name
+            for e in cell:
+                if isinstance(e, Bomb):
+                    return u"@"
+            sys.stderr.write("unknown elements in %s\n" % str(cell))
+            return u"U"
         return " "
 
     def __move_player(self, j):
@@ -175,7 +228,7 @@ class DevelBot(object):
         y = obj.y
         cell = self.__map[y][x]
         if isinstance(cell, Player) or isinstance(cell, Bomb) or \
-               (type(cell) == list and len(cell == 1)):
+               (type(cell) == list and len(cell) == 1):
             self.__map[y][x] = BLANK
         elif type(self.__map[y][x]) == list:
             # another player or bomb located in cell

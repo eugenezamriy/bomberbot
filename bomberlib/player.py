@@ -14,6 +14,7 @@ class Player(object):
         self.y = None
         self.bombs_count = bombs_count
         self.bomb_radius = bomb_radius
+        self.killed = False
 
     def __get_name(self):
         return self.__name

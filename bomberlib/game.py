@@ -175,7 +175,6 @@ class Game(threading.Thread):
         @type turns:        dic
         @param turns:       Turns dictionary (player = movement message).
         """
-
         def calculate_explosions(j):
             # explodes target cell
             # returns True if explosion can proceed in this direction
@@ -186,16 +185,40 @@ class Game(threading.Thread):
                 if cell == BLANK:
                     return True
                 elif isinstance(cell, Player):
+                    cell.killed = True
+                    self.__map[y][x] = BLANK
                     j["killed"].append(cell.name)
-                elif isinstance(cell, Bomb):
-                    blow_bomb(j, cell)
                     return True
+                elif isinstance(cell, Bomb):
+                    self.__map[y][x] = BLANK
+                    blow_bomb(j, cell)
+                    return False
                 elif cell == STONE:
+                    # TODO: what about bonuses?
+                    self.__map[y][x] = BLANK
                     j["destroyed_walls"].append([x, y])
                     return False
                 elif cell == METAL:
                     return False
-            
+                elif type(cell) == list:
+                    to_remove = []
+                    for obj in cell:
+                        if isinstance(obj, Player):
+                            to_remove.append(obj)
+                            obj.killed = True
+                            j["killed"].append(obj.name)
+                    for obj in to_remove:
+                        cell.remove(obj)
+                    if len(cell) == 0:
+                        self.__map[y][x] = BLANK
+                        return True
+                    elif len(cell) == 1:
+                        if isinstance(cell[0], Bomb):
+                            self.__map[y][x] = cell[0]
+                            blow_bomb(j, cell[0])
+                            return False
+                        raise RuntimeError("unknown element at %x,%s: %s" % (x, y, str(cell[0])))
+                    raise RuntimeError("unknown elements at %s,%s: %s" % (x, y, str(cell)))
             # blow bomb
             def blow_bomb(j, bomb):
                 # TODO: kill any players in cell with bomb 
@@ -234,11 +257,16 @@ class Game(threading.Thread):
                 j["exploded_bombs"].append({"center": [x, y]})
 
             # calculate bombs explosions
+            exploded_bombs = []
             for bomb in self.__bombs:
                 if bomb.turn_detonated != turn_number:
                     continue
                 blow_bomb(j, bomb)
-                
+                exploded_bombs.append(bomb)
+            for bomb in exploded_bombs:
+                bomb.player.bombs_count += 1
+                self.__bombs.remove(bomb)
+        #
         j = {"status": "turn_completed",
              "turn_number": turn_number,
              "killed": [],
@@ -310,7 +338,9 @@ class Game(threading.Thread):
             self.__map[y][x] = BLANK
         elif type(self.__map[y][x]) == list:
             # another player or bomb located in cell
-            self.__map[y][x].remove(obj)
+            cell.remove(obj)
+            if len(cell) == 1:
+                self.__map[y][x] = cell[0]
         else:
             raise RuntimeError("unknown element found in position %s,%s" % (x, y))
 
