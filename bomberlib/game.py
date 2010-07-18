@@ -182,7 +182,7 @@ class Game(threading.Thread):
             def explode_cell(j, x, y):
                 if x > self.__map_width - 1 or x < 0 or y > self.__map_height - 1 or y < 0:
                     return False
-                cell = self.__map[x][y]
+                cell = self.__map[y][x]
                 if cell == BLANK:
                     return True
                 elif isinstance(cell, Player):
