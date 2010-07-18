@@ -180,6 +180,8 @@ class Game(threading.Thread):
             # explodes target cell
             # returns True if explosion can proceed in this direction
             def explode_cell(j, x, y):
+                if x > self.__map_width - 1 or x < 0 or y > self.__map_height - 1 or y < 0:
+                    return False
                 cell = self.__map[x][y]
                 if cell == BLANK:
                     return True
@@ -304,7 +306,7 @@ class Game(threading.Thread):
         y = obj.y
         cell = self.__map[y][x]
         if isinstance(cell, Player) or isinstance(cell, Bomb) or \
-               (type(cell) == list and len(cell == 1)):
+               (type(cell) == list and len(cell) == 1):
             self.__map[y][x] = BLANK
         elif type(self.__map[y][x]) == list:
             # another player or bomb located in cell
