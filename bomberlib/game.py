@@ -273,7 +273,7 @@ class Game(threading.Thread):
         for p in right_turns:
             if "bomb" in right_turns[p]:          # place bomb if needed
                 x, y = right_turns[p]["bomb"]
-                bomb = Bomb(p, x, y, turn_number, turn_number, turn_number + self.__bomb_delay)
+                bomb = Bomb(p, x, y, turn_number, turn_number + self.__bomb_delay)
                 if bombs.has_key((x, y)):
                     if type(bombs[(x, y)]) == list:
                         bombs[(x, y)].append(bomb)
