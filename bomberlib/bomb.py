@@ -13,8 +13,8 @@ class Bomb(object):
         @param x:              X position.
         @type y:               int
         @param y:              Y position.
-        @type turn_number:     int
-        @param turn_number:    Bomb placement turn number.
+        @type turn_placed:     int
+        @param turn_placed:    Bomb placement turn number.
         @type turn_detonated:  int
         @param turn_detonated: Bomb detonation turn number.
         """
