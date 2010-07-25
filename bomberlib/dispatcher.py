@@ -151,7 +151,8 @@ class Dispatcher(threading.Thread):
         while session_id in self.__tmp_sids:
             session_id = generate_id()
         #
-        j = {"status": "ok", "session_id": session_id, "game_types": self.__make_game_types_list()}
+        j = {"status": "ok", "session_id": session_id, "game_types": self.__make_game_types_list(),
+             "your_name": bot.name}
         self.__tmp_sids[session_id] = (PLAYER, bot.name, time.time())
         return j
 
